@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35931.197 d17.13
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HttpClient.Cache", "src\HttpClient.Cache\HttpClient.Cache.csproj", "{4495CFD5-788C-B748-283E-08AFC74976DE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HttpClient.Cache.Tests", "test\HttpClient.Cache.Tests\HttpClient.Cache.Tests.csproj", "{E3BBB8CB-5F94-463C-DF92-7B9B1064F0BF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4495CFD5-788C-B748-283E-08AFC74976DE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4495CFD5-788C-B748-283E-08AFC74976DE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4495CFD5-788C-B748-283E-08AFC74976DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4495CFD5-788C-B748-283E-08AFC74976DE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E3BBB8CB-5F94-463C-DF92-7B9B1064F0BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E3BBB8CB-5F94-463C-DF92-7B9B1064F0BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E3BBB8CB-5F94-463C-DF92-7B9B1064F0BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E3BBB8CB-5F94-463C-DF92-7B9B1064F0BF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8A2DF894-5B66-430F-95A8-F5FDE99902A8}
+	EndGlobalSection
+EndGlobal
