@@ -287,11 +287,6 @@ public sealed class FileCacheTests : IDisposable
             RequestMessage = new(HttpMethod.Get, RepoUrl),
         };
 
-        using var notModifiedResponse = new HttpResponseMessage(HttpStatusCode.NotModified)
-        {
-            RequestMessage = new(HttpMethod.Get, RepoUrl),
-        };
-
         // When
         using var cachedResponse = await _cache.SetResponseAsync(
             responseKey,
