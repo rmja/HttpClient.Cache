@@ -77,7 +77,7 @@ The `FileCache` class implements persistent caching by storing HTTP responses as
 ## Key Components
 
 - [`CacheHandler`](src/HttpClient.Cache/CacheHandler.cs): HTTP message handler that manages caching logic. This handler can be registered on a `HttpClient` as a message handler layer.
-- [`IHttpCache`](src/HttpClient.Cache/IHttpCache.cs): Interface for cache storage implementations. The default file based implementation is [`IHttpCache`](src/HttpClient.Cache/Files/FileCache.cs).
+- [`IHttpCache`](src/HttpClient.Cache/IHttpCache.cs): Interface for cache storage implementations. The default file based implementation is [`FileCache`](src/HttpClient.Cache/Files/FileCache.cs).
 
 ## Alternatives
 
