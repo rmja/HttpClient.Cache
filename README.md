@@ -8,8 +8,7 @@ It supports file based caching of responses based on the HTTP/1.1 caching header
 ## Features
 
 - Pluggable caching for `HttpClient`
-- Customizable cache key computation
-- Support for cache variations
+- Customizable cache key computation (supports both shared and private caching)
 - Extensible cache entry and cache handler interfaces (defaults to file based caching)
 - Easy integration with dependency injection
 
@@ -33,14 +32,17 @@ Note that all uses of the cache goes via `HttpClient`, so caching can easily be 
 #### Example
 
 ```csharp
-
 // Register the caching client on a HttpClient in your Program.cs
 services.AddHttpClient("cachedClient")
         .AddResponseCache(); // Defaults to using the shared, file based cache.
 
 // Use the client as normally
 var client = httpClientFactory.CreateClient("cachedClient");
-var response = await client.GetAsync("https://api.example.com/data");
+
+var firstResponse = await client.GetAsync("https://example.com/"); // Returns a "non-private" Cache-Control header
+var secondResponse = await client.GetAsync("https://example.com/");
+Assert.Equal(CacheType.None, firstResponse.GetCacheType()); // This response was not obtained from cache.
+Assert.Equal(CacheType.Shared, secondResponse.GetCacheType()); // This response was obtained from the shared (not private) cache.
 ```
 
 Note that the usage here is different compared to e.g. [Replicant](https://github.com/SimonCropp/Replicant).

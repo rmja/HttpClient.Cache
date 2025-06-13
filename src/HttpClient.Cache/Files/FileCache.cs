@@ -18,7 +18,7 @@ public class FileCache : IHttpCache
     public TimeSpan DefaultRefreshExpiration { get; set; } = TimeSpan.FromDays(2);
 
     public FileCache()
-        : this(Path.Combine(Path.GetTempPath(), "HttpClient.FileCache")) { }
+        : this(Path.Combine(Path.GetTempPath(), "HttpClient.Cache.Files.FileCache")) { }
 
     public FileCache(string rootDirectory)
         : this(rootDirectory, TimeProvider.System) { }
@@ -106,8 +106,7 @@ public class FileCache : IHttpCache
             cancellationToken
         );
 
-        var hash = ComputeHash(variationKey);
-        var variationFileName = FileName.Variation(hash, modified, response.Headers.ETag);
+        var variationFileName = FileName.Variation(variationKey, modified, response.Headers.ETag);
         var variationFile = VariationFile.CreateTemp(_tempDirectory);
 
         await variationFile.WriteAsync(variation);
@@ -157,8 +156,7 @@ public class FileCache : IHttpCache
             LastModified = response.Content.Headers.LastModified,
         };
 
-        var hash = ComputeHash(responseKey);
-        var metadataFileName = FileName.Metadata(hash, modified, response.Headers.ETag);
+        var metadataFileName = FileName.Metadata(responseKey, modified, response.Headers.ETag);
         var filePair = ResponseFilePair.CreateTemp(_tempDirectory);
 
         await using (var responseFile = filePair.ResponseInfo.OpenWrite())
@@ -226,16 +224,10 @@ public class FileCache : IHttpCache
 
     private FileInfo? FindJsonFile(string key)
     {
-        var hash = ComputeHash(key);
+        var hash = Hash.ComputeHash(key);
 
         // Rely on that the file name includes the "modified" timestamp right after the hash
         return _rootDirectory.EnumerateFiles($"{hash}_*.json").MaxBy(x => x.Name);
-    }
-
-    private static string ComputeHash(string key)
-    {
-        var hash = SHA1.HashData(Encoding.UTF8.GetBytes(key));
-        return Convert.ToHexStringLower(hash);
     }
 
     public void Clear()

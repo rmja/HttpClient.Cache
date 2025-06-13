@@ -5,9 +5,9 @@ using System.Net.Http.Headers;
 namespace HttpClient.Cache.Files;
 
 internal readonly record struct FileName(
-    string Hash,
+    string KeyHash,
     DateTime ModifiedUtc,
-    EntityTagHeaderValue? Etag,
+    string? EtagHash,
     string Extension
 )
 {
@@ -17,7 +17,7 @@ internal readonly record struct FileName(
     public const string ResponseExtension = ".response.bin";
     public const string VariationExtension = ".variation.json";
 
-    public bool IsTempFile => Hash.Length == _guidLength && ModifiedUtc == default;
+    public bool IsTempFile => KeyHash.Length == _guidLength && ModifiedUtc == default;
     public bool IsMetadataFile => Extension == MetadataExtension;
     public bool IsResponseFile => Extension == ResponseExtension;
     public bool IsVariationFile => Extension == VariationExtension;
@@ -28,7 +28,7 @@ internal readonly record struct FileName(
     public FileName ToResponseFileName()
     {
         Debug.Assert(IsMetadataFile, "Cannot convert non-metadata file to response file name.");
-        return new(Hash, ModifiedUtc, Etag, ResponseExtension);
+        return new(KeyHash, ModifiedUtc, EtagHash, ResponseExtension);
     }
 
     public void Refresh(FileInfo fileInfo, DateTimeOffset now)
@@ -54,27 +54,39 @@ internal readonly record struct FileName(
 
     public override string ToString() =>
         IsTempFile
-            ? Hash + Extension
+            ? KeyHash + Extension
             : string.Format(
                 CultureInfo.InvariantCulture,
                 "{0}_{1:yyyy-MM-ddTHHmmss}Z_{2}{3}",
-                Hash,
+                KeyHash,
                 ModifiedUtc,
-                FormatEtag(Etag),
+                EtagHash ?? string.Empty,
                 Extension
             );
 
     public static FileName Metadata(
-        string hash,
+        string key,
         DateTimeOffset modified,
         EntityTagHeaderValue? etag
-    ) => new(hash, modified.UtcDateTime, etag, MetadataExtension);
+    ) =>
+        new(
+            Hash.ComputeHash(key),
+            modified.UtcDateTime,
+            etag is not null ? Hash.ComputeHash(etag.ToString()) : null,
+            MetadataExtension
+        );
 
     public static FileName Variation(
-        string hash,
+        string key,
         DateTimeOffset modified,
         EntityTagHeaderValue? etag
-    ) => new(hash, modified.UtcDateTime, etag, VariationExtension);
+    ) =>
+        new(
+            Hash.ComputeHash(key),
+            modified.UtcDateTime,
+            etag is not null ? Hash.ComputeHash(etag.ToString()) : null,
+            VariationExtension
+        );
 
     public static FileName FromFileInfo(FileInfo fileInfo)
     {
@@ -100,31 +112,10 @@ internal readonly record struct FileName(
         );
         Debug.Assert(modifiedUtc.Kind == DateTimeKind.Utc);
 
-        var etagPart = basename[(index + 1 + DateTimeFormat.Length + 1)..];
-        var etag = ParseEtag(etagPart);
+        var etagHash = basename[(index + 1 + DateTimeFormat.Length + 1)..].ToString();
 
-        return new(hash, modifiedUtc, etag, extension);
+        return new(hash, modifiedUtc, etagHash, extension);
     }
 
     public static implicit operator string(FileName filename) => filename.ToString();
-
-    private static string FormatEtag(EntityTagHeaderValue? etag)
-    {
-        if (etag is null)
-        {
-            return string.Empty;
-        }
-        return etag.IsWeak ? $"W{etag.Tag.Trim('"')}" : $"S{etag.Tag.Trim('"')}";
-    }
-
-    private static EntityTagHeaderValue? ParseEtag(ReadOnlySpan<char> etagPart)
-    {
-        if (etagPart.Length == 0)
-        {
-            return null;
-        }
-        var isWeak = etagPart.StartsWith('W');
-        var tag = isWeak ? etagPart[1..] : etagPart;
-        return new EntityTagHeaderValue($"\"{etagPart}\"", isWeak);
-    }
 }
