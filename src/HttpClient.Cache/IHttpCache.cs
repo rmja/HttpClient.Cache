@@ -3,56 +3,51 @@ namespace HttpClient.Cache;
 public interface IHttpCache : IAsyncDisposable, IDisposable
 {
     /// <summary>
-    /// Get a cache entry by its key.
+    /// Get a cached response from a request.
     /// </summary>
-    /// <param name="key">The cache key</param>
-    /// <returns>A cache entry which can be any of <see cref="Response"/> or an <see cref="Variation"/> </returns>
-    ValueTask<CacheResult> GetAsync(string key, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Set a response entry in the cache.
-    /// </summary>
-    /// <param name="responseKey">The cache key</param>
-    /// <param name="response">The response to set</param>
-    /// <returns>The cached response</returns>
-    Task<HttpResponseMessage> SetResponseAsync(
-        string responseKey,
-        HttpResponseMessage response,
+    /// <param name="request">The request</param>
+    /// <returns>The cached response, or <see langword="null"/> if the response was not found</returns>
+    ValueTask<HttpResponseMessage?> GetAsync(
+        HttpRequestMessage request,
         CancellationToken cancellationToken = default
     );
 
     /// <summary>
-    /// Set a response entry in the cache with a variation dependency.
+    /// Get a cached response from a request, including the variation if it exists.
     /// </summary>
-    /// <param name="responseKey">The response cache key</param>
+    /// <param name="request">The request</param>
+    /// <returns>The cached response including variation details, or <see langword="null"/> if the response was not found</returns>
+    ValueTask<ResponseWithVariation?> GetWithVariationAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
+    /// Set a response entry in the cache and return the cached equivalent.
+    /// </summary>
     /// <param name="response">The response to set</param>
-    /// <param name="variationKey">The variation cache key</param>
-    /// <param name="variation">The variation</param>
-    /// <returns>The cached response</returns>
-    Task<HttpResponseMessage> SetResponseAsync(
-        string responseKey,
+    /// <returns>The cached response, or <see langword="null"/> if the response could not be cached</returns>
+    Task<HttpResponseMessage?> SetResponseAsync(
         HttpResponseMessage response,
-        string variationKey,
-        Variation variation,
         CancellationToken cancellationToken = default
     );
 
     /// <summary>
     /// Refresh a response to indicate that it was used
     /// </summary>
-    /// <param name="responseKey">The response cache key</param>
+    /// <param name="cachedResponse">The cached response to be refreshed</param>
     ValueTask RefreshResponseAsync(
-        string responseKey,
+        HttpResponseMessage cachedResponse,
         CancellationToken cancellationToken = default
     );
 
     /// <summary>
     /// Refresh a response to indicate that it was used and set an updated known expiration time.
     /// </summary>
-    /// <param name="responseKey"></param>
-    /// <param name="notModifiedResponse">The 302 "NOT MODIFIED" response from the server</param>
+    /// <param name="cachedResponse">The cached response to be refreshed</param>
+    /// <param name="notModifiedResponse">The 302 "NOT MODIFIED" response from the server that corresponds to the response to be refreshed</param>
     ValueTask RefreshResponseAsync(
-        string responseKey,
+        HttpResponseMessage cachedResponse,
         HttpResponseMessage notModifiedResponse,
         CancellationToken cancellationToken = default
     );

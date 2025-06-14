@@ -1,10 +1,10 @@
 namespace HttpClient.Cache;
 
-public sealed class Variation : IEquatable<Variation>
+public sealed class Variation(CacheType cacheType) : IEquatable<Variation>
 {
-    public required CacheType CacheType { get; init; }
+    public CacheType CacheType { get; init; } = cacheType;
 
-    public required List<string> NormalizedVaryHeaders { get; init; }
+    public List<string> NormalizedVaryHeaders { get; init; } = [];
 
     public static Variation FromResponseMessage(HttpResponseMessage response)
     {
@@ -14,7 +14,7 @@ public sealed class Variation : IEquatable<Variation>
             .Headers.Vary.Select(x => x.ToLowerInvariant())
             .Order(StringComparer.Ordinal)
             .ToList();
-        return new Variation() { CacheType = type, NormalizedVaryHeaders = normalizedVaryHeaders };
+        return new(type) { NormalizedVaryHeaders = normalizedVaryHeaders };
     }
 
     private static CacheType GetCacheType(HttpRequestMessage request, HttpResponseMessage response)

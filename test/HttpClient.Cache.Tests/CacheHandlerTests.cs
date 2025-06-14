@@ -16,18 +16,14 @@ public sealed class CacheHandlerTests : IDisposable
     private readonly DirectoryInfo _rootDirectory = new(
         Path.Combine(Path.GetTempPath(), typeof(CacheHandlerTests).FullName!)
     );
+    private readonly CacheKeyComputer _cacheKeyComputer;
     private readonly FileCache _cache;
     private readonly Mock<HttpMessageHandler> _nextMock = new();
-    private readonly CacheKeyComputer _cacheKeyComputer;
     private readonly PublicCacheHandler _handler;
     private readonly FakeTimeProvider _timeProvider = new();
 
     public CacheHandlerTests()
     {
-        _cache = new FileCache(_rootDirectory.FullName, _timeProvider);
-        _cache.Clear();
-        Assert.Empty(_rootDirectory.EnumerateFiles("*.*", SearchOption.AllDirectories));
-
         var provider = new ServiceCollection()
             .AddLogging()
             .AddSingleton<CacheKeyComputer>()
@@ -36,6 +32,10 @@ public sealed class CacheHandlerTests : IDisposable
             .BuildServiceProvider();
 
         _cacheKeyComputer = provider.GetRequiredService<CacheKeyComputer>();
+        _cache = new FileCache(_rootDirectory.FullName, _cacheKeyComputer, _timeProvider);
+        _cache.Clear();
+        Assert.Empty(_rootDirectory.EnumerateFiles("*.*", SearchOption.AllDirectories));
+
         _handler = ActivatorUtilities.CreateInstance<PublicCacheHandler>(provider, _cache);
         _handler.InnerHandler = _nextMock.Object;
     }

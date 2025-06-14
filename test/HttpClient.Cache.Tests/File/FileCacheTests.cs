@@ -2,7 +2,6 @@ using System.Net;
 using System.Text;
 using HttpClient.Cache.Files;
 using Microsoft.Extensions.Time.Testing;
-using OneOf.Types;
 
 namespace HttpClient.Cache.Tests.File;
 
@@ -18,7 +17,7 @@ public sealed class FileCacheTests : IDisposable
 
     public FileCacheTests()
     {
-        _cache = new FileCache(_rootDirectory.FullName, _timeProvider);
+        _cache = new FileCache(_rootDirectory.FullName, new CacheKeyComputer(), _timeProvider);
         _cache.Clear();
         Assert.Empty(_rootDirectory.EnumerateFiles("*.*", SearchOption.AllDirectories));
     }
@@ -33,19 +32,16 @@ public sealed class FileCacheTests : IDisposable
     public async Task Get_KeyDoesNotExist()
     {
         // Given
-        var key = Guid.NewGuid().ToString();
+        var request = new HttpRequestMessage(HttpMethod.Get, RepoUrl);
 
         // When
-        Assert.Equal(
-            new NotFound(),
-            await _cache.GetAsync(key, TestContext.Current.CancellationToken)
-        );
+        Assert.Null(await _cache.GetAsync(request, TestContext.Current.CancellationToken));
 
         // Then
     }
 
     [Fact]
-    public async Task Get_Response()
+    public async Task Get_WithoutVariation()
     {
         // Given
         var key = Guid.NewGuid().ToString();
@@ -65,23 +61,22 @@ public sealed class FileCacheTests : IDisposable
             },
         };
 
-        using var _ = await _cache.SetResponseAsync(
-            key,
+        using var cachedResponse = await _cache.SetResponseAsync(
             response,
             TestContext.Current.CancellationToken
         );
 
         // When
-        var value = await _cache.GetAsync(key, TestContext.Current.CancellationToken);
+        using var found = await _cache.GetAsync(request, TestContext.Current.CancellationToken);
 
         // Then
-        using var cachedResponse = value.AsResponse;
-        Assert.Equal(response.Version, cachedResponse.Version);
-        Assert.Equal(response.StatusCode, cachedResponse.StatusCode);
-        Assert.Equal(response.ReasonPhrase, cachedResponse.ReasonPhrase);
-        Assert.Equal(response.Headers, cachedResponse.Headers);
-        Assert.Equal(response.Content.Headers, cachedResponse.Content.Headers);
-        Assert.Empty(cachedResponse.TrailingHeaders);
+        Assert.NotNull(found);
+        Assert.Equal(response.Version, found.Version);
+        Assert.Equal(response.StatusCode, found.StatusCode);
+        Assert.Equal(response.ReasonPhrase, found.ReasonPhrase);
+        Assert.Equal(response.Headers, found.Headers);
+        Assert.Equal(response.Content.Headers, found.Content.Headers);
+        Assert.Empty(found.TrailingHeaders);
 
         var content = await response.Content.ReadAsStringAsync(
             TestContext.Current.CancellationToken
@@ -90,223 +85,219 @@ public sealed class FileCacheTests : IDisposable
     }
 
     [Fact]
-    public async Task Get_Variation_SharedSingleHeader()
+    public async Task Get_WithVariation_SharedSingleHeader()
     {
         // Given
-        var variationKey = Guid.NewGuid().ToString();
-        var responseKey = Guid.NewGuid().ToString();
+        var request = new HttpRequestMessage(HttpMethod.Get, RepoUrl);
         var response = new HttpResponseMessage
         {
-            RequestMessage = new(HttpMethod.Get, RepoUrl),
+            RequestMessage = request,
             Headers = { Vary = { "Header" } },
         };
 
-        using var _ = await _cache.SetResponseAsync(
-            responseKey,
+        using var cachedResponse = await _cache.SetResponseAsync(
             response,
-            variationKey,
-            Variation.FromResponseMessage(response),
             TestContext.Current.CancellationToken
         );
 
         // When
-        var value = await _cache.GetAsync(variationKey, TestContext.Current.CancellationToken);
+        using var found = await _cache.GetWithVariationAsync(
+            request,
+            TestContext.Current.CancellationToken
+        );
 
         // Then
-        var variation = value.AsVariation;
-        Assert.Equal(
-            new() { CacheType = CacheType.Shared, NormalizedVaryHeaders = ["header"] },
-            variation
-        );
+        var variation = found?.Variation;
+        Assert.Equal(new(CacheType.Shared) { NormalizedVaryHeaders = ["header"] }, variation);
     }
 
     [Fact]
-    public async Task Get_Variation_PrivateMultipleHeaders()
+    public async Task Get_WithVariation_PrivateMultipleHeaders()
     {
         // Given
         var variationKey = Guid.NewGuid().ToString();
         var responseKey = Guid.NewGuid().ToString();
 
+        var request = new HttpRequestMessage(HttpMethod.Get, RepoUrl)
+        {
+            Headers = { Authorization = new("Bearer", "token") },
+        };
         using var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
-            RequestMessage = new(HttpMethod.Get, RepoUrl)
-            {
-                Headers = { Authorization = new("Bearer", "token") },
-            },
+            RequestMessage = request,
+
             Headers = { Vary = { "Header1", "Header2" } },
         };
 
         using var cachedResponse = await _cache.SetResponseAsync(
-            responseKey,
             response,
-            variationKey,
-            Variation.FromResponseMessage(response),
             TestContext.Current.CancellationToken
         );
 
         // When
-        var value = await _cache.GetAsync(variationKey, TestContext.Current.CancellationToken);
+        using var found = await _cache.GetWithVariationAsync(
+            request,
+            TestContext.Current.CancellationToken
+        );
 
         // Then
-        var variation = value.AsVariation;
         Assert.Equal(
-            new() { CacheType = CacheType.Private, NormalizedVaryHeaders = ["header1", "header2"] },
-            variation
+            new(CacheType.Private) { NormalizedVaryHeaders = ["header1", "header2"] },
+            found?.Variation
         );
     }
 
     [Fact]
-    public async Task Set_ResponseExpiration()
+    public async Task Set_ResponseExpiration_WithoutVariation()
     {
         // Given
-        var responseKey = Guid.NewGuid().ToString();
         var expiration = TimeSpan.FromSeconds(10);
 
+        var request = new HttpRequestMessage(HttpMethod.Get, RepoUrl);
         using var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
-            RequestMessage = new(HttpMethod.Get, RepoUrl),
+            RequestMessage = request,
             Headers = { CacheControl = new() { MaxAge = expiration } },
         };
 
         // When
         using var cachedResponse = await _cache.SetResponseAsync(
-            responseKey,
             response,
             TestContext.Current.CancellationToken
         );
 
         // Then
         _timeProvider.Advance(TimeSpan.FromSeconds(8));
-        var notExpired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        using var notExpiredResponse = notExpired.AsResponse;
-        Assert.Equal(TimeSpan.FromSeconds(2), notExpiredResponse.Headers.CacheControl?.MaxAge);
+        using var notExpired = await _cache.GetAsync(
+            request,
+            TestContext.Current.CancellationToken
+        );
+        Assert.Equal(TimeSpan.FromSeconds(2), notExpired?.Headers.CacheControl?.MaxAge);
 
         _timeProvider.Advance(TimeSpan.FromSeconds(10));
-        var expired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        Assert.False(expired.Exists);
+        using var expired = await _cache.GetAsync(request, TestContext.Current.CancellationToken);
+        Assert.Null(expired);
     }
 
     [Fact]
-    public async Task Set_ResponseExpirationRemovesVariation()
+    public async Task Set_ResponseExpiration_WithVariation()
     {
         // Given
-        var responseKey = Guid.NewGuid().ToString();
-        var variationKey = Guid.NewGuid().ToString();
         var expiration = TimeSpan.FromSeconds(10);
 
+        var request = new HttpRequestMessage(HttpMethod.Get, RepoUrl);
         using var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
-            RequestMessage = new(HttpMethod.Get, RepoUrl),
-            Headers = { CacheControl = new() { MaxAge = expiration } },
-        };
-        var variation = new Variation()
-        {
-            CacheType = CacheType.Shared,
-            NormalizedVaryHeaders = ["header"],
+            RequestMessage = request,
+            Headers =
+            {
+                CacheControl = new() { MaxAge = expiration },
+                Vary = { "Header" },
+            },
         };
 
         // When
         using var cachedResponse = await _cache.SetResponseAsync(
-            responseKey,
             response,
-            variationKey,
-            variation,
             TestContext.Current.CancellationToken
         );
 
         // Then
-        var notExpired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        using var notExpiredResponse = notExpired.AsResponse;
-        Assert.Equal(TimeSpan.FromSeconds(10), notExpiredResponse.Headers.CacheControl?.MaxAge);
-
-        notExpired = await _cache.GetAsync(variationKey, TestContext.Current.CancellationToken);
+        using var notExpired = await _cache.GetWithVariationAsync(
+            request,
+            TestContext.Current.CancellationToken
+        );
+        Assert.Equal(TimeSpan.FromSeconds(10), notExpired?.Response.Headers.CacheControl?.MaxAge);
         Assert.NotNull(notExpired);
-        Assert.Equal(variation, notExpired);
+        Assert.Equal(
+            new(CacheType.Shared) { NormalizedVaryHeaders = ["header"] },
+            notExpired.Variation
+        );
 
         _timeProvider.Advance(TimeSpan.FromSeconds(20));
-        var expired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        Assert.False(expired.Exists);
-
-        expired = await _cache.GetAsync(variationKey, TestContext.Current.CancellationToken);
-        Assert.False(expired.Exists);
+        using var expired = await _cache.GetAsync(request, TestContext.Current.CancellationToken);
+        Assert.Null(expired);
     }
 
     [Fact]
     public async Task Refresh_MaxAge()
     {
         // Given
-        var responseKey = Guid.NewGuid().ToString();
         var expiration = TimeSpan.FromSeconds(10);
 
+        var request = new HttpRequestMessage(HttpMethod.Get, RepoUrl);
         using var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
-            RequestMessage = new(HttpMethod.Get, RepoUrl),
+            RequestMessage = request,
             Headers = { CacheControl = new() { MaxAge = expiration } },
         };
 
         using var notModifiedResponse = new HttpResponseMessage(HttpStatusCode.NotModified)
         {
-            RequestMessage = new(HttpMethod.Get, RepoUrl),
+            RequestMessage = request,
             Headers = { CacheControl = new() { MaxAge = expiration } },
         };
 
         // When
         using var cachedResponse = await _cache.SetResponseAsync(
-            responseKey,
             response,
             TestContext.Current.CancellationToken
         );
+        Assert.NotNull(cachedResponse);
         Assert.Equal(TimeSpan.FromSeconds(10), cachedResponse.Headers.CacheControl?.MaxAge);
 
         _timeProvider.Advance(TimeSpan.FromSeconds(8));
         await _cache.RefreshResponseAsync(
-            responseKey,
+            cachedResponse,
             notModifiedResponse,
             TestContext.Current.CancellationToken
         );
 
         // Then
         _timeProvider.Advance(TimeSpan.FromSeconds(8));
-        var notExpired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        using var notExpiredResponse = notExpired.AsResponse;
-        Assert.Equal(TimeSpan.FromSeconds(2), notExpiredResponse.Headers.CacheControl?.MaxAge);
+        using var notExpired = await _cache.GetAsync(
+            request,
+            TestContext.Current.CancellationToken
+        );
+        Assert.Equal(TimeSpan.FromSeconds(2), notExpired?.Headers.CacheControl?.MaxAge);
 
         _timeProvider.Advance(TimeSpan.FromSeconds(10));
-        var expired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        Assert.False(expired.Exists);
+        using var expired = await _cache.GetAsync(request, TestContext.Current.CancellationToken);
+        Assert.Null(expired);
     }
 
     [Fact]
     public async Task Refresh_NoMaxAge()
     {
         // Given
-        var responseKey = Guid.NewGuid().ToString();
-
         _cache.DefaultInitialExpiration = TimeSpan.FromSeconds(10);
         _cache.DefaultRefreshExpiration = TimeSpan.FromSeconds(20);
 
+        var request = new HttpRequestMessage(HttpMethod.Get, RepoUrl);
         using var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
-            RequestMessage = new(HttpMethod.Get, RepoUrl),
+            RequestMessage = request,
         };
 
         // When
         using var cachedResponse = await _cache.SetResponseAsync(
-            responseKey,
             response,
             TestContext.Current.CancellationToken
         );
+        Assert.NotNull(cachedResponse);
 
         _timeProvider.Advance(TimeSpan.FromSeconds(8));
-        await _cache.RefreshResponseAsync(responseKey, TestContext.Current.CancellationToken);
+        await _cache.RefreshResponseAsync(cachedResponse, TestContext.Current.CancellationToken);
 
         // Then
         _timeProvider.Advance(TimeSpan.FromSeconds(18));
-        var notExpired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        using var _ = notExpired.AsResponse;
+        using var notExpired = await _cache.GetAsync(
+            request,
+            TestContext.Current.CancellationToken
+        );
 
         _timeProvider.Advance(TimeSpan.FromSeconds(10));
-        var expired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        Assert.False(expired.Exists);
+        using var expired = await _cache.GetAsync(request, TestContext.Current.CancellationToken);
+        Assert.Null(expired);
     }
 }

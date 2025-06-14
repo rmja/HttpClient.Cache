@@ -6,7 +6,7 @@ public interface ICacheKeyComputer
     /// Compute a cache key for a given request and optional variation.
     /// </summary>
     /// <param name="request">The request</param>
-    /// <param name="variation">The variation that must be included in the key</param>
+    /// <param name="variation">The variation that must be used to vary the computed key</param>
     /// <returns></returns>
-    string? ComputeKey(HttpRequestMessage request, Variation? variation);
+    string? ComputeKey(HttpRequestMessage request, Variation variation);
 }

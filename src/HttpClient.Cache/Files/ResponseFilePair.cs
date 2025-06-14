@@ -1,5 +1,3 @@
-using System.Net.Http.Headers;
-using System.Reflection.PortableExecutable;
 using System.Text.Json;
 
 namespace HttpClient.Cache.Files;
@@ -71,7 +69,7 @@ internal record struct ResponseFilePair(FileInfo MetadataInfo, FileInfo Response
             else
             {
                 await responseFileStream.DisposeAsync();
-                return null; // Expired response
+                return null; // Response is expired
             }
         }
 

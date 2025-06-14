@@ -1,5 +1,4 @@
 using System.Net;
-using OneOf.Types;
 
 namespace HttpClient.Cache.Files;
 
@@ -7,6 +6,7 @@ public class FileCache : IHttpCache
 {
     private readonly DirectoryInfo _rootDirectory;
     private readonly DirectoryInfo _tempDirectory;
+    private readonly ICacheKeyComputer _cacheKeyComputer;
     private readonly TimeProvider _timeProvider;
     private readonly ITimer _timer;
 
@@ -20,10 +20,15 @@ public class FileCache : IHttpCache
         : this(Path.Combine(Path.GetTempPath(), "HttpClient.Cache.Files.FileCache")) { }
 
     public FileCache(string rootDirectory)
-        : this(rootDirectory, TimeProvider.System) { }
+        : this(rootDirectory, new CacheKeyComputer(), TimeProvider.System) { }
 
-    public FileCache(string rootDirectory, TimeProvider timeProvider)
+    public FileCache(
+        string rootDirectory,
+        ICacheKeyComputer cacheKeyComputer,
+        TimeProvider timeProvider
+    )
     {
+        _cacheKeyComputer = cacheKeyComputer;
         _timeProvider = timeProvider;
 
         _rootDirectory = new(rootDirectory);
@@ -49,75 +54,180 @@ public class FileCache : IHttpCache
         );
     }
 
-    public async ValueTask<CacheResult> GetAsync(
-        string key,
+    public async ValueTask<HttpResponseMessage?> GetAsync(
+        HttpRequestMessage request,
         CancellationToken cancellationToken = default
     )
     {
-        var fileInfo = FindJsonFile(key);
+        var response = await GetWithVariationAsync(request);
+        return response?.Response;
+    }
+
+    public async ValueTask<ResponseWithVariation?> GetWithVariationAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var responseKey = _cacheKeyComputer.ComputeKey(request, new(CacheType.Shared));
+        if (responseKey is null)
+        {
+            return null;
+        }
+
+        var fileInfo = FindJsonFile(responseKey);
         if (fileInfo is null)
         {
-            return new NotFound();
+            return null;
         }
 
         var filename = FileName.FromFileInfo(fileInfo);
         if (filename.IsMetadataFile)
         {
+            // A response was found directly from the response key without a variation
+
             var filePair = ResponseFilePair.FromMetadataFileInfo(fileInfo);
             var response = await filePair.GetResponseAsync(_timeProvider.GetUtcNow());
-            return response is not null ? response : new NotFound();
+            if (response is null)
+            {
+                // Response is expired
+                filePair.TryDelete();
+                return null;
+            }
+
+            response.RequestMessage = request;
+            return new(response, new Variation(CacheType.Shared));
         }
         else if (filename.IsVariationFile)
         {
+            // A variation file was found, so we need to read the variation to find the response
+
             var file = VariationFile.FromVariationFileInfo(fileInfo);
+
+            // Indicate that we have used the variation file
             filename.Refresh(fileInfo, _timeProvider.GetUtcNow());
+
             var variation = await file.GetVariationAsync(_timeProvider.GetUtcNow());
-            return variation is not null ? variation : new NotFound();
+            if (variation is null)
+            {
+                return null;
+            }
+
+            // Recompute the response key using the variation
+            responseKey = _cacheKeyComputer.ComputeKey(request, variation);
+            if (responseKey is null)
+            {
+                return null;
+            }
+
+            fileInfo = FindJsonFile(responseKey);
+            if (fileInfo is null)
+            {
+                return null;
+            }
+
+            filename = FileName.FromFileInfo(fileInfo);
+            if (filename.IsMetadataFile)
+            {
+                var filePair = ResponseFilePair.FromMetadataFileInfo(fileInfo);
+                var response = await filePair.GetResponseAsync(_timeProvider.GetUtcNow());
+                if (response is null)
+                {
+                    // Response is expired
+                    filePair.TryDelete();
+                    return null;
+                }
+
+                response.RequestMessage = request;
+                return new(response, variation);
+            }
         }
 
-        return new NotFound();
+        return null;
     }
 
-    public Task<HttpResponseMessage> SetResponseAsync(
-        string responseKey,
-        HttpResponseMessage responseMessage,
-        CancellationToken cancellationToken = default
-    )
-    {
-        var now = _timeProvider.GetUtcNow();
-        return SetResponseImplAsync(responseKey, responseMessage, now, cancellationToken);
-    }
-
-    public async Task<HttpResponseMessage> SetResponseAsync(
-        string responseKey,
+    public async Task<HttpResponseMessage?> SetResponseAsync(
         HttpResponseMessage response,
-        string variationKey,
-        Variation variation,
         CancellationToken cancellationToken = default
     )
     {
-        var now = _timeProvider.GetUtcNow();
-        var modified = response.GetModified() ?? now;
-        var expiration = response.GetExpiration(now) ?? (now + DefaultInitialExpiration);
+        var variation = Variation.FromResponseMessage(response);
+        if (variation.CacheType == CacheType.None)
+        {
+            // Response is not cacheable
+            return null;
+        }
 
-        var cachedResponse = await SetResponseImplAsync(
-            responseKey,
-            response,
-            now,
-            cancellationToken
-        );
+        var request =
+            response.RequestMessage
+            ?? throw new ArgumentNullException(
+                nameof(response),
+                "Response must have a RequestMessage set."
+            );
 
-        var variationFileName = FileName.Variation(variationKey, modified, response.Headers.ETag);
-        var variationFile = VariationFile.CreateTemp(_tempDirectory);
+        var responseKey = _cacheKeyComputer.ComputeKey(request, new(CacheType.Shared));
+        if (responseKey is null)
+        {
+            // Response cannot be cached as the cache key could not be computed
+            return null;
+        }
 
-        await variationFile.WriteAsync(variation);
+        if (variation.CacheType == CacheType.Shared && variation.NormalizedVaryHeaders.Count == 0)
+        {
+            // No Vary header, cache the response directly in the shared cache using the entry key
 
-        // Let the variation file have the same (possibly updated) expiration as the response
-        variationFileName.SetExpiration(variationFile.Info, expiration);
+            var now = _timeProvider.GetUtcNow();
+            var cachedResponse = await SetResponseImplAsync(
+                responseKey,
+                response,
+                now,
+                cancellationToken
+            );
+            cachedResponse.RequestMessage = request;
+            return cachedResponse;
+        }
+        else
+        {
+            // The response is private or has a Vary header, so we need to cache both the response and the variation
 
-        variationFile.TryMakePermanent(_rootDirectory, variationFileName);
+            // Let the computed response key be the key for the variation,
+            // and compute a new response key using the variation
+            var variationKey = responseKey;
+            responseKey = _cacheKeyComputer.ComputeKey(request, variation);
+            if (responseKey is null)
+            {
+                // Response cannot be cached as the variation key could not be computed
+                return null;
+            }
 
-        return cachedResponse;
+            var now = _timeProvider.GetUtcNow();
+            var modified = response.GetModified() ?? now;
+            var expiration = response.GetExpiration(now) ?? (now + DefaultInitialExpiration);
+
+            // Write the response
+            var cachedResponse = await SetResponseImplAsync(
+                responseKey,
+                response,
+                now,
+                cancellationToken
+            );
+            cachedResponse.RequestMessage = request;
+
+            var variationFileName = FileName.Variation(
+                variationKey,
+                modified,
+                response.Headers.ETag
+            );
+            var variationFile = VariationFile.CreateTemp(_tempDirectory);
+
+            await variationFile.WriteAsync(variation);
+
+            // Let the variation file have the same (possibly updated) expiration as the response
+            variationFileName.SetExpiration(variationFile.Info, expiration);
+
+            variationFile.TryMakePermanent(_rootDirectory, variationFileName);
+
+            return cachedResponse;
+        }
     }
 
     private async Task<HttpResponseMessage> SetResponseImplAsync(
@@ -183,15 +293,18 @@ public class FileCache : IHttpCache
         return cachedResponse!;
     }
 
-    public ValueTask RefreshResponseAsync(string key, CancellationToken cancellationToken = default)
+    public ValueTask RefreshResponseAsync(
+        HttpResponseMessage cachedResponse,
+        CancellationToken cancellationToken = default
+    )
     {
         var now = _timeProvider.GetUtcNow();
-        RefreshResponseImpl(key, now, expiration: now + DefaultRefreshExpiration);
+        RefreshResponseImpl(cachedResponse, now, expiration: now + DefaultRefreshExpiration);
         return ValueTask.CompletedTask;
     }
 
     public ValueTask RefreshResponseAsync(
-        string key,
+        HttpResponseMessage cachedResponse,
         HttpResponseMessage notModifiedResponse,
         CancellationToken cancellationToken = default
     )
@@ -206,13 +319,24 @@ public class FileCache : IHttpCache
 
         var now = _timeProvider.GetUtcNow();
         var expiration = notModifiedResponse.GetExpiration(now) ?? (now + DefaultRefreshExpiration);
-        RefreshResponseImpl(key, now, expiration);
+        RefreshResponseImpl(cachedResponse, now, expiration);
         return ValueTask.CompletedTask;
     }
 
-    private void RefreshResponseImpl(string key, DateTimeOffset now, DateTimeOffset expiration)
+    private void RefreshResponseImpl(
+        HttpResponseMessage cachedResponse,
+        DateTimeOffset now,
+        DateTimeOffset expiration
+    )
     {
-        var fileInfo = FindJsonFile(key);
+        var request = cachedResponse.RequestMessage!;
+        var responseKey = _cacheKeyComputer.ComputeKey(request, new(CacheType.Shared));
+        if (responseKey is null)
+        {
+            return;
+        }
+
+        var fileInfo = FindJsonFile(responseKey);
         if (fileInfo is null)
         {
             return;
@@ -221,6 +345,33 @@ public class FileCache : IHttpCache
         var filename = FileName.FromFileInfo(fileInfo);
         filename.Refresh(fileInfo, now);
         filename.SetExpiration(fileInfo, expiration);
+
+        if (filename.IsVariationFile)
+        {
+            // If the file is a variation file, we need to refresh the actual response as well
+
+            var variation = Variation.FromResponseMessage(cachedResponse);
+            responseKey = _cacheKeyComputer.ComputeKey(request, variation);
+            if (responseKey is null)
+            {
+                return;
+            }
+
+            fileInfo = FindJsonFile(responseKey);
+            if (fileInfo is null)
+            {
+                return;
+            }
+
+            filename = FileName.FromFileInfo(fileInfo);
+            if (!filename.IsMetadataFile)
+            {
+                return;
+            }
+
+            filename.Refresh(fileInfo, now);
+            filename.SetExpiration(fileInfo, expiration);
+        }
     }
 
     private FileInfo? FindJsonFile(string key)

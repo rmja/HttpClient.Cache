@@ -1,10 +1,9 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
-using Microsoft.Extensions.Logging;
 
 namespace HttpClient.Cache;
 
-public class CacheKeyComputer(ILogger<CacheKeyComputer> logger) : ICacheKeyComputer
+public class CacheKeyComputer : ICacheKeyComputer
 {
     private const char Separator = '\x1E';
     private const char Null = '\x00';
@@ -14,7 +13,7 @@ public class CacheKeyComputer(ILogger<CacheKeyComputer> logger) : ICacheKeyCompu
 
     public bool RequireJwtToken { get; set; } = false;
 
-    public string? ComputeKey(HttpRequestMessage request, Variation? variation)
+    public string? ComputeKey(HttpRequestMessage request, Variation variation)
     {
         var builder = _stringBuilder ??= new();
 
@@ -32,46 +31,43 @@ public class CacheKeyComputer(ILogger<CacheKeyComputer> logger) : ICacheKeyCompu
             builder.Append(Separator);
             builder.Append(url.PathAndQuery);
 
-            if (variation is not null)
+            builder.Append(Separator);
+
+            if (variation.CacheType == CacheType.Private)
             {
-                builder.Append(Separator);
-
-                if (variation.CacheType == CacheType.Private)
+                var userId = GetUserId(request);
+                if (userId is null)
                 {
-                    var userId = GetUserId(request);
-                    if (userId is null)
-                    {
-                        return null;
-                    }
+                    return null;
+                }
 
-                    builder.Append(userId);
+                builder.Append(userId);
+            }
+            else
+            {
+                builder.Append(Null);
+            }
+
+            foreach (var headerName in variation.NormalizedVaryHeaders)
+            {
+                builder.Append(Separator).Append(headerName).Append('=');
+
+                if (request.Headers.TryGetValues(headerName, out var headerValues))
+                {
+                    var headerValuesArray = headerValues.ToArray();
+                    Array.Sort(headerValuesArray, StringComparer.Ordinal);
+
+                    builder.Append(headerValuesArray[0]);
+
+                    for (var i = 1; i < headerValuesArray.Length; i++)
+                    {
+                        builder.Append(',');
+                        builder.Append(headerValuesArray[i]);
+                    }
                 }
                 else
                 {
                     builder.Append(Null);
-                }
-
-                foreach (var headerName in variation.NormalizedVaryHeaders)
-                {
-                    builder.Append(Separator).Append(headerName).Append('=');
-
-                    if (request.Headers.TryGetValues(headerName, out var headerValues))
-                    {
-                        var headerValuesArray = headerValues.ToArray();
-                        Array.Sort(headerValuesArray, StringComparer.Ordinal);
-
-                        builder.Append(headerValuesArray[0]);
-
-                        for (var i = 1; i < headerValuesArray.Length; i++)
-                        {
-                            builder.Append(',');
-                            builder.Append(headerValuesArray[i]);
-                        }
-                    }
-                    else
-                    {
-                        builder.Append(Null);
-                    }
                 }
             }
 
@@ -87,9 +83,6 @@ public class CacheKeyComputer(ILogger<CacheKeyComputer> logger) : ICacheKeyCompu
     {
         if (!request.Headers.TryGetValues("Authorization", out var headerValues))
         {
-            logger.LogError(
-                "A private resource was requested but an Authorization header was not included in the request"
-            );
             return null;
         }
 
@@ -101,7 +94,6 @@ public class CacheKeyComputer(ILogger<CacheKeyComputer> logger) : ICacheKeyCompu
             {
                 var jwt = new JwtSecurityToken(accessToken);
                 var userId = GetUserId(jwt);
-                logger.LogDebug("Extracted user ID from JWT: {UserId}", userId);
                 return userId;
             }
             catch
