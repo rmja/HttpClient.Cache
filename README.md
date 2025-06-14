@@ -1,7 +1,10 @@
 # HttpClient.Cache
 
+[![CI](https://github.com/rmja/HttpClient.Cache/actions/workflows/ci.yaml/badge.svg)](https://github.com/rmja/HttpClient.Cache/actions/workflows/ci.yml)
+[![HttpClient.Cache](https://img.shields.io/nuget/vpre/HttpClient.Cache.svg)](https://www.nuget.org/packages/HttpClient.Cache)
+
 HTTP/1.1 compliant caching layer for the .NET `HttpClient`.
-A prerelease package is availble on nuget [![HttpClient.Cache](https://img.shields.io/nuget/vpre/HttpClient.Cache.svg)](https://www.nuget.org/packages/HttpClient.Cache)
+A prerelease package is availble on nuget.
 
 It supports file based caching of responses based on the HTTP/1.1 caching headers specified in [RFC7234](https://tools.ietf.org/html/rfc7234).
 
