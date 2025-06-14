@@ -3,7 +3,7 @@ using System.Net.Http.Headers;
 
 namespace HttpClient.Cache;
 
-public sealed class Response : ICacheEntry, IAsyncDisposable, IDisposable
+public sealed class Response : IAsyncDisposable, IDisposable
 {
     private bool _responseMessageObtained = false;
 

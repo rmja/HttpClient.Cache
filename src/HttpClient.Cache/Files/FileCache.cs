@@ -1,6 +1,8 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using OneOf;
+using OneOf.Types;
 
 namespace HttpClient.Cache.Files;
 
@@ -50,7 +52,7 @@ public class FileCache : IHttpCache
         );
     }
 
-    public async ValueTask<ICacheEntry?> GetAsync(
+    public async ValueTask<CacheResult> GetAsync(
         string key,
         CancellationToken cancellationToken = default
     )
@@ -58,23 +60,25 @@ public class FileCache : IHttpCache
         var fileInfo = FindJsonFile(key);
         if (fileInfo is null)
         {
-            return null;
+            return new NotFound();
         }
 
         var filename = FileName.FromFileInfo(fileInfo);
         if (filename.IsMetadataFile)
         {
             var filePair = ResponseFilePair.FromMetadataFileInfo(fileInfo);
-            return await filePair.GetResponseAsync(_timeProvider.GetUtcNow());
+            var response = await filePair.GetResponseAsync(_timeProvider.GetUtcNow());
+            return response is not null ? response : new NotFound();
         }
         else if (filename.IsVariationFile)
         {
             var file = VariationFile.FromVariationFileInfo(fileInfo);
             filename.Refresh(fileInfo, _timeProvider.GetUtcNow());
-            return await file.GetVariationAsync(_timeProvider.GetUtcNow());
+            var variation = await file.GetVariationAsync(_timeProvider.GetUtcNow());
+            return variation is not null ? variation : new NotFound();
         }
 
-        return null;
+        return new NotFound();
     }
 
     public Task<Response> SetResponseAsync(

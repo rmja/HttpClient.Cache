@@ -184,9 +184,9 @@ public class CacheHandler(
         logger.LogTrace("Request {RequestUri} can be served from cache.", request.RequestUri);
 
         var entry = await cache.GetAsync(entryKey, cancellationToken);
-        switch (entry)
-        {
-            case Response responseEntry:
+        return await entry.Match(
+            response =>
+            {
                 logger.LogTrace(
                     "Cached response was found for {RequestUri} using entry key {EntryKey}.",
                     request.RequestUri,
@@ -195,19 +195,20 @@ public class CacheHandler(
 
                 // The cached response did not have a Vary header and was not private
 
-                return new(entryKey, responseEntry.ToResponseMessage(request), CacheType.Shared);
-            case Variation variationEntry:
-                logger.LogTrace(
-                    "Cached vary by rules were found for {RequestUri}.",
-                    request.RequestUri
+                return ValueTask.FromResult<CacheHit?>(
+                    new(entryKey, response.ToResponseMessage(request), CacheType.Shared)
                 );
+            },
+            async variation =>
+            {
+                logger.LogTrace("Cached variation was found for {RequestUri}.", request.RequestUri);
 
                 // Regenerate an exact cache key from the cached vary by rules and header values in the request
-                var responseKey = cacheKeyProvider.ComputeKey(request, variationEntry);
+                var responseKey = cacheKeyProvider.ComputeKey(request, variation);
                 if (responseKey is not null)
                 {
                     entry = await cache.GetAsync(responseKey, cancellationToken);
-                    if (entry is Response exactCacheResponse)
+                    if (entry.TryGetResponse(out var exactCacheResponse))
                     {
                         logger.LogTrace(
                             "Cached response was found for {RequestUri} using response key {ResponseKey}.",
@@ -219,28 +220,30 @@ public class CacheHandler(
                         return new(
                             responseKey,
                             exactCacheResponse.ToResponseMessage(request),
-                            variationEntry.CacheType
+                            variation.CacheType
                         );
                     }
                     else
                     {
                         logger.LogTrace(
-                            "No cache hit was found for request {RequestUri} using response key {ResponseKey}.",
+                            "No response cache hit was found for request {RequestUri} using response key {ResponseKey}.",
                             request.RequestUri,
                             responseKey
                         );
                     }
                 }
-                break;
-            default:
+
+                return null;
+            },
+            notFound =>
+            {
                 logger.LogTrace(
                     "No cache entry was found for request {RequestUri} using entry key {EntryKey}.",
                     request.RequestUri,
                     entryKey
                 );
-                break;
-        }
-
-        return null;
+                return ValueTask.FromResult<CacheHit?>(null);
+            }
+        );
     }
 }

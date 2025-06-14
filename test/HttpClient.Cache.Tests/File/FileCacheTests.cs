@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using HttpClient.Cache.Files;
 using Microsoft.Extensions.Time.Testing;
+using OneOf.Types;
 
 namespace HttpClient.Cache.Tests.File;
 
@@ -35,7 +36,10 @@ public sealed class FileCacheTests : IDisposable
         var key = Guid.NewGuid().ToString();
 
         // When
-        Assert.Null(await _cache.GetAsync(key, TestContext.Current.CancellationToken));
+        Assert.Equal(
+            new NotFound(),
+            await _cache.GetAsync(key, TestContext.Current.CancellationToken)
+        );
 
         // Then
     }
@@ -71,7 +75,7 @@ public sealed class FileCacheTests : IDisposable
         var value = await _cache.GetAsync(key, TestContext.Current.CancellationToken);
 
         // Then
-        using var responseEntry = Assert.IsType<Response>(value);
+        using var responseEntry = value.AsResponse;
         using var cachedResponse = responseEntry.ToResponseMessage(request);
         Assert.Equal(response.Version, cachedResponse.Version);
         Assert.Equal(response.StatusCode, cachedResponse.StatusCode);
@@ -110,7 +114,7 @@ public sealed class FileCacheTests : IDisposable
         var value = await _cache.GetAsync(variationKey, TestContext.Current.CancellationToken);
 
         // Then
-        var variation = Assert.IsType<Variation>(value);
+        var variation = value.AsVariation;
         Assert.Equal(
             new() { CacheType = CacheType.Shared, NormalizedVaryHeaders = ["header"] },
             variation
@@ -145,7 +149,7 @@ public sealed class FileCacheTests : IDisposable
         var value = await _cache.GetAsync(variationKey, TestContext.Current.CancellationToken);
 
         // Then
-        var variation = Assert.IsType<Variation>(value);
+        var variation = value.AsVariation;
         Assert.Equal(
             new() { CacheType = CacheType.Private, NormalizedVaryHeaders = ["header1", "header2"] },
             variation
@@ -175,12 +179,12 @@ public sealed class FileCacheTests : IDisposable
         // Then
         _timeProvider.Advance(TimeSpan.FromSeconds(8));
         var notExpired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        using var notExpiredResponse = Assert.IsType<Response>(notExpired);
+        using var notExpiredResponse = notExpired.AsResponse;
         Assert.Equal(TimeSpan.FromSeconds(2), notExpiredResponse.MaxAge);
 
         _timeProvider.Advance(TimeSpan.FromSeconds(10));
         var expired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        Assert.Null(expired);
+        Assert.False(expired.Exists);
     }
 
     [Fact]
@@ -213,7 +217,7 @@ public sealed class FileCacheTests : IDisposable
 
         // Then
         var notExpired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        using var notExpiredResponse = Assert.IsType<Response>(notExpired);
+        using var notExpiredResponse = notExpired.AsResponse;
         Assert.Equal(TimeSpan.FromSeconds(10), notExpiredResponse.MaxAge);
 
         notExpired = await _cache.GetAsync(variationKey, TestContext.Current.CancellationToken);
@@ -222,10 +226,10 @@ public sealed class FileCacheTests : IDisposable
 
         _timeProvider.Advance(TimeSpan.FromSeconds(20));
         var expired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        Assert.Null(expired);
+        Assert.False(expired.Exists);
 
         expired = await _cache.GetAsync(variationKey, TestContext.Current.CancellationToken);
-        Assert.Null(expired);
+        Assert.False(expired.Exists);
     }
 
     [Fact]
@@ -265,12 +269,12 @@ public sealed class FileCacheTests : IDisposable
         // Then
         _timeProvider.Advance(TimeSpan.FromSeconds(8));
         var notExpired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        using var notExpiredResponse = Assert.IsType<Response>(notExpired);
+        using var notExpiredResponse = notExpired.AsResponse;
         Assert.Equal(TimeSpan.FromSeconds(2), notExpiredResponse.MaxAge);
 
         _timeProvider.Advance(TimeSpan.FromSeconds(10));
         var expired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        Assert.Null(expired);
+        Assert.False(expired.Exists);
     }
 
     [Fact]
@@ -300,10 +304,10 @@ public sealed class FileCacheTests : IDisposable
         // Then
         _timeProvider.Advance(TimeSpan.FromSeconds(18));
         var notExpired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        using var _ = Assert.IsType<Response>(notExpired);
+        using var _ = notExpired.AsResponse;
 
         _timeProvider.Advance(TimeSpan.FromSeconds(10));
         var expired = await _cache.GetAsync(responseKey, TestContext.Current.CancellationToken);
-        Assert.Null(expired);
+        Assert.False(expired.Exists);
     }
 }

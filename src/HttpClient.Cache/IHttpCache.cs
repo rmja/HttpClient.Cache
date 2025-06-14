@@ -7,7 +7,7 @@ public interface IHttpCache : IAsyncDisposable, IDisposable
     /// </summary>
     /// <param name="key">The cache key</param>
     /// <returns>A cache entry which can be any of <see cref="Response"/> or an <see cref="Variation"/> </returns>
-    ValueTask<ICacheEntry?> GetAsync(string key, CancellationToken cancellationToken = default);
+    ValueTask<CacheResult> GetAsync(string key, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Set a response entry in the cache.

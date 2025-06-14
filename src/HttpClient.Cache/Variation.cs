@@ -1,6 +1,6 @@
 namespace HttpClient.Cache;
 
-public sealed class Variation : IEquatable<Variation>, ICacheEntry
+public sealed class Variation : IEquatable<Variation>
 {
     public required CacheType CacheType { get; init; }
 

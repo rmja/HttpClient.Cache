@@ -1,3 +1,4 @@
+using HttpClient.Cache.Files;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HttpClient.Cache.Tests;
@@ -10,7 +11,9 @@ public class ReadmeExamplesTests
         var services = new ServiceCollection();
 
         // Register the caching client on a HttpClient in your Program.cs
-        services.AddHttpClient("cachedClient").AddResponseCache(); // Defaults to using the shared, file based cache.
+        var cache = new FileCache();
+        cache.Clear();
+        services.AddHttpClient("cachedClient").AddResponseCache(cache); // Use cleared cache for testing
 
         var httpClientFactory = services
             .BuildServiceProvider()
