@@ -1,4 +1,4 @@
-namespace HttpClient.Cache;
+namespace HttpClientCache;
 
 internal static class CacheConstants
 {

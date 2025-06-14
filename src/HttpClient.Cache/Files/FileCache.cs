@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace HttpClient.Cache.Files;
+namespace HttpClientCache.Files;
 
 /// <summary>
 /// Provides a file-based implementation of <see cref="IHttpCache"/> for persistent HTTP response caching on disk.

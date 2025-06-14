@@ -1,5 +1,5 @@
-using HttpClient.Cache;
-using HttpClient.Cache.Files;
+using HttpClientCache;
+using HttpClientCache.Files;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Microsoft.Extensions.DependencyInjection;

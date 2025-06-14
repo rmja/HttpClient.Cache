@@ -1,9 +1,9 @@
 using System.Net;
 using System.Text;
-using HttpClient.Cache.Files;
+using HttpClientCache.Files;
 using Microsoft.Extensions.Time.Testing;
 
-namespace HttpClient.Cache.Tests.File;
+namespace HttpClientCache.Tests.File;
 
 public sealed class FileCacheTests : IDisposable
 {

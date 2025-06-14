@@ -1,7 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 
-namespace HttpClient.Cache;
+namespace HttpClientCache;
 
 public class CacheKeyComputer : ICacheKeyComputer
 {

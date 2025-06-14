@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace HttpClient.Cache.Files;
+namespace HttpClientCache.Files;
 
 public record Metadata
 {

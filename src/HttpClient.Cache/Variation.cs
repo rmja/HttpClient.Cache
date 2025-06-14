@@ -1,4 +1,4 @@
-namespace HttpClient.Cache;
+namespace HttpClientCache;
 
 /// <summary>
 /// Represents a cache variation, allowing cache entries to be differentiated

@@ -1,4 +1,4 @@
-namespace HttpClient.Cache;
+namespace HttpClientCache;
 
 /// <summary>
 /// Defines the contract for a HTTP cache that stores and retrieves HTTP response entries.

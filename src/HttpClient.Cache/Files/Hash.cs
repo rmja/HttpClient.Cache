@@ -1,7 +1,7 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
 
-namespace HttpClient.Cache.Files;
+namespace HttpClientCache.Files;
 
 internal static class Hash
 {

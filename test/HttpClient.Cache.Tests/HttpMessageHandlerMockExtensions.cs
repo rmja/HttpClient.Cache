@@ -2,7 +2,7 @@ using System.Linq.Expressions;
 using Moq;
 using Moq.Protected;
 
-namespace HttpClient.Cache.Tests;
+namespace HttpClientCache.Tests;
 
 public static class HttpMessageHandlerMockExtensions
 {

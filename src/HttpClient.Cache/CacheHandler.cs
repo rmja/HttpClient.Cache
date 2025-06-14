@@ -1,7 +1,7 @@
 using System.Net;
 using Microsoft.Extensions.Logging;
 
-namespace HttpClient.Cache;
+namespace HttpClientCache;
 
 /// <summary>
 /// HTTP/1.1 caching compliant <see cref="System.Net.Http.HttpClient"/> message handler.

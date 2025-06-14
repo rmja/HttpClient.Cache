@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net.Http.Headers;
 
-namespace HttpClient.Cache.Files;
+namespace HttpClientCache.Files;
 
 internal readonly record struct FileName(
     string KeyHash,

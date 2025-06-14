@@ -1,4 +1,4 @@
-namespace HttpClient.Cache.Tests;
+namespace HttpClientCache.Tests;
 
 internal static class HttpResponseMessageExtensions
 {

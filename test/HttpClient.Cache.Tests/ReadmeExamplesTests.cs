@@ -1,7 +1,7 @@
-using HttpClient.Cache.Files;
+using HttpClientCache.Files;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace HttpClient.Cache.Tests;
+namespace HttpClientCache.Tests;
 
 public class ReadmeExamplesTests
 {

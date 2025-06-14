@@ -1,4 +1,4 @@
-namespace HttpClient.Cache;
+namespace HttpClientCache;
 
 public sealed record ResponseWithVariation(HttpResponseMessage Response, Variation Variation)
     : IDisposable

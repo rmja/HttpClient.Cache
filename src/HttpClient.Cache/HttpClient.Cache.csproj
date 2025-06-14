@@ -12,6 +12,7 @@
     <RepositoryUrl>https://github.com/rmja/HttpClient.Cache.git</RepositoryUrl>
     <Version>0.0.2</Version>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RootNamespace>HttpClientCache</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="">

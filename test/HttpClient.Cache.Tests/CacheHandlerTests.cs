@@ -1,13 +1,12 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Security.Claims;
-using HttpClient.Cache.Files;
-using HttpClient.Cache.Tests.Support;
+using HttpClientCache.Files;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
 
-namespace HttpClient.Cache.Tests;
+namespace HttpClientCache.Tests;
 
 public sealed class CacheHandlerTests : IDisposable
 {

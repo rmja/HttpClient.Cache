@@ -1,4 +1,4 @@
-namespace HttpClient.Cache;
+namespace HttpClientCache;
 
 public interface ICacheKeyComputer
 {

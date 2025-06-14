@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace HttpClient.Cache.Files;
+namespace HttpClientCache.Files;
 
 internal record struct VariationFile(FileInfo Info)
 {

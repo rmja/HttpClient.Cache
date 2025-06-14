@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace HttpClient.Cache.Files;
+namespace HttpClientCache.Files;
 
 [JsonSerializable(typeof(Metadata))]
 [JsonSerializable(typeof(Variation))]
