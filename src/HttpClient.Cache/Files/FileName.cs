@@ -41,15 +41,13 @@ internal readonly record struct FileName(
     {
         Debug.Assert(fileInfo.Name.EndsWith(Extension), "FileInfo name does not match FileName.");
         var lastWriteTime = fileInfo.LastWriteTimeUtc;
-        return lastWriteTime == FileConstants.NoExpirationWriteTime
-            ? null
-            : new DateTimeOffset(lastWriteTime, TimeSpan.Zero);
+        return new DateTimeOffset(lastWriteTime, TimeSpan.Zero);
     }
 
-    public void SetExpiration(FileInfo fileInfo, DateTimeOffset? expiration)
+    public void SetExpiration(FileInfo fileInfo, DateTimeOffset expiration)
     {
         Debug.Assert(fileInfo.Name.EndsWith(Extension), "FileInfo name does not match FileName.");
-        fileInfo.LastWriteTimeUtc = expiration?.UtcDateTime ?? FileConstants.NoExpirationWriteTime;
+        fileInfo.LastWriteTimeUtc = expiration.UtcDateTime;
     }
 
     public override string ToString() =>

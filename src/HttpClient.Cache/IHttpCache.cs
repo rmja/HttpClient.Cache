@@ -1,5 +1,8 @@
 namespace HttpClient.Cache;
 
+/// <summary>
+/// Defines the contract for a HTTP cache that stores and retrieves HTTP response entries.
+/// </summary>
 public interface IHttpCache : IAsyncDisposable, IDisposable
 {
     /// <summary>

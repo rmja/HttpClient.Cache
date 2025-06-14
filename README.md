@@ -59,21 +59,6 @@ services.AddHttpClient("cachedClient")
 
 `FileCache` implements `IHttpCache` and this is an extension point if one wants to use a different, non-file based cache implementation.
 
-### FileCache Configuration
-The `FileCache` class implements persistent caching by storing HTTP responses as files on disk. Below are the key properties of `FileCache` that can be used to for configuration:
-
-
-- **DefaultInitialExpiration**  
-  The default duration for which a cached entry remains valid _after it is first seen_ if no explicit expiration is set in the response.
-
-- **DefaultRefreshExpiration**  
-  The default duration for which a cached entry remains valid _when it is seen again_ if no explicit expiration is set in the response.
-
-- **MaxEntries**  
-  The maximum number of cache entries allowed in the cache directory.
-  If the number of cached files exceeds this value, the cache will evict older or least-used entries to maintain the limit.
-
-
 ## Key Components
 
 - [`CacheHandler`](src/HttpClient.Cache/CacheHandler.cs): HTTP message handler that manages caching logic. This handler can be registered on a `HttpClient` as a message handler layer.

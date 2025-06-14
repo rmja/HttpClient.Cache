@@ -2,6 +2,9 @@ using System.Net;
 
 namespace HttpClient.Cache.Files;
 
+/// <summary>
+/// Provides a file-based implementation of <see cref="IHttpCache"/> for persistent HTTP response caching on disk.
+/// </summary>
 public class FileCache : IHttpCache
 {
     private readonly DirectoryInfo _rootDirectory;
@@ -12,16 +15,41 @@ public class FileCache : IHttpCache
 
     public static FileCache Default { get; } = new();
 
+    /// <summary>
+    /// Gets or sets the maximum number of cache entries allowed in the cache directory.
+    /// Note that this is a soft limit, and the actual number of entries may exceed this value temporarily during purging.
+    /// </summary>
     public int MaxEntries { get; set; } = 1000;
+
+    /// <summary>
+    /// The default duration for which a cached entry remains valid <i>after it is first seen</i> if no explicit expiration is set in the response.
+    /// </summary>
     public TimeSpan DefaultInitialExpiration { get; set; } = TimeSpan.FromDays(2);
+
+    /// <summary>
+    /// The default duration for which a cached entry remains valid <i>when it is seen again</i> if no explicit expiration is set in the response.
+    /// </summary>
     public TimeSpan DefaultRefreshExpiration { get; set; } = TimeSpan.FromDays(2);
 
+    /// <summary>
+    /// Creates a new instance of <see cref="FileCache"/> with the default root directory.
+    /// </summary>
     public FileCache()
         : this(Path.Combine(Path.GetTempPath(), "HttpClient.Cache.Files.FileCache")) { }
 
+    /// <summary>
+    /// Creates a new instance of <see cref="FileCache"/> with the specified root directory.
+    /// </summary>
+    /// <param name="rootDirectory">The directory where cache files are stored.</param>
     public FileCache(string rootDirectory)
         : this(rootDirectory, new CacheKeyComputer(), TimeProvider.System) { }
 
+    /// <summary>
+    /// Creates a new instance of <see cref="FileCache"/>.
+    /// </summary>
+    /// <param name="rootDirectory">The directory where cache files are stored</param>
+    /// <param name="cacheKeyComputer">The mechanism used to provide cache keys for a given request</param>
+    /// <param name="timeProvider">The time provider</param>
     public FileCache(
         string rootDirectory,
         ICacheKeyComputer cacheKeyComputer,

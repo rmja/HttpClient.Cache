@@ -1,5 +1,9 @@
 namespace HttpClient.Cache;
 
+/// <summary>
+/// Represents a cache variation, allowing cache entries to be differentiated
+/// based on custom criteria such as shared/private cache type or vary headers.
+/// </summary>
 public sealed class Variation(CacheType cacheType) : IEquatable<Variation>
 {
     public CacheType CacheType { get; init; } = cacheType;
