@@ -15,7 +15,7 @@ public interface IHttpCache : IAsyncDisposable, IDisposable
     /// <param name="responseKey">The cache key</param>
     /// <param name="response">The response to set</param>
     /// <returns>The cached response</returns>
-    Task<Response> SetResponseAsync(
+    Task<HttpResponseMessage> SetResponseAsync(
         string responseKey,
         HttpResponseMessage response,
         CancellationToken cancellationToken = default
@@ -29,7 +29,7 @@ public interface IHttpCache : IAsyncDisposable, IDisposable
     /// <param name="variationKey">The variation cache key</param>
     /// <param name="variation">The variation</param>
     /// <returns>The cached response</returns>
-    Task<Response> SetResponseAsync(
+    Task<HttpResponseMessage> SetResponseAsync(
         string responseKey,
         HttpResponseMessage response,
         string variationKey,

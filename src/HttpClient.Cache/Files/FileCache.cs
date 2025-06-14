@@ -1,7 +1,4 @@
 using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using OneOf;
 using OneOf.Types;
 
 namespace HttpClient.Cache.Files;
@@ -81,7 +78,7 @@ public class FileCache : IHttpCache
         return new NotFound();
     }
 
-    public Task<Response> SetResponseAsync(
+    public Task<HttpResponseMessage> SetResponseAsync(
         string responseKey,
         HttpResponseMessage responseMessage,
         CancellationToken cancellationToken = default
@@ -91,7 +88,7 @@ public class FileCache : IHttpCache
         return SetResponseImplAsync(responseKey, responseMessage, now, cancellationToken);
     }
 
-    public async Task<Response> SetResponseAsync(
+    public async Task<HttpResponseMessage> SetResponseAsync(
         string responseKey,
         HttpResponseMessage response,
         string variationKey,
@@ -103,7 +100,7 @@ public class FileCache : IHttpCache
         var modified = response.GetModified() ?? now;
         var expiration = response.GetExpiration(now) ?? (now + DefaultInitialExpiration);
 
-        var responseEntry = await SetResponseImplAsync(
+        var cachedResponse = await SetResponseImplAsync(
             responseKey,
             response,
             now,
@@ -120,10 +117,10 @@ public class FileCache : IHttpCache
 
         variationFile.TryMakePermanent(_rootDirectory, variationFileName);
 
-        return responseEntry;
+        return cachedResponse;
     }
 
-    private async Task<Response> SetResponseImplAsync(
+    private async Task<HttpResponseMessage> SetResponseImplAsync(
         string responseKey,
         HttpResponseMessage response,
         DateTimeOffset now,
@@ -182,8 +179,8 @@ public class FileCache : IHttpCache
         filePair.TryMakePermanent(_rootDirectory, metadataFileName);
 
         // Allow expired responses to be returned in case that the expiration was immediate
-        var responseEntry = await filePair.GetResponseAsync(now, allowExpired: true);
-        return responseEntry!;
+        var cachedResponse = await filePair.GetResponseAsync(now, allowExpired: true);
+        return cachedResponse!;
     }
 
     public ValueTask RefreshResponseAsync(string key, CancellationToken cancellationToken = default)

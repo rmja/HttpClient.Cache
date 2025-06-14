@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Reflection.PortableExecutable;
 using System.Text.Json;
 
 namespace HttpClient.Cache.Files;
@@ -48,7 +49,7 @@ internal record struct ResponseFilePair(FileInfo MetadataInfo, FileInfo Response
         }
     }
 
-    public readonly async ValueTask<Response?> GetResponseAsync(
+    public readonly async ValueTask<HttpResponseMessage?> GetResponseAsync(
         DateTimeOffset now,
         bool allowExpired = false
     )
@@ -74,20 +75,44 @@ internal record struct ResponseFilePair(FileInfo MetadataInfo, FileInfo Response
             }
         }
 
-        return new()
+        var response = new HttpResponseMessage()
         {
-            Url = metadata.Url,
             Version = metadata.Version,
             StatusCode = metadata.StatusCode,
             ReasonPhrase = metadata.ReasonPhrase,
-            Headers = metadata.ResponseHeaders,
-            ContentHeaders = metadata.ContentHeaders,
-            TrailingHeaders = metadata.TrailingHeaders,
-            Etag = metadata.Etag is not null ? EntityTagHeaderValue.Parse(metadata.Etag) : null,
-            MaxAge = maxAge,
-            LastModified = metadata.LastModified,
-            ContentStream = responseFileStream,
+            Content = new StreamContent(responseFileStream),
         };
+
+        foreach (var header in metadata.ResponseHeaders)
+        {
+            response.Headers.TryAddWithoutValidation(header.Key, header.Value.AsEnumerable());
+        }
+
+        foreach (var header in metadata.ContentHeaders)
+        {
+            response.Content.Headers.TryAddWithoutValidation(
+                header.Key,
+                header.Value.AsEnumerable()
+            );
+        }
+
+        if (metadata.TrailingHeaders is not null)
+        {
+            foreach (var header in metadata.TrailingHeaders)
+            {
+                response.TrailingHeaders.TryAddWithoutValidation(
+                    header.Key,
+                    header.Value.AsEnumerable()
+                );
+            }
+        }
+
+        if (response.Headers.CacheControl?.MaxAge is not null)
+        {
+            response.Headers.CacheControl.MaxAge = maxAge;
+        }
+
+        return response;
     }
 
     public readonly async ValueTask<Metadata> ReadMetadataAsync()

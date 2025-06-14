@@ -108,10 +108,11 @@ public class CacheHandler(
                     response,
                     cancellationToken
                 );
+                cachedResponse.RequestMessage = request;
 
                 // Replace the response with the cached response that has a reset content stream
                 response.Dispose();
-                response = cachedResponse.ToResponseMessage(request);
+                response = cachedResponse;
             }
             else if (
                 variation.CacheType == CacheType.Private
@@ -130,10 +131,11 @@ public class CacheHandler(
                         variation,
                         cancellationToken
                     );
+                    cachedResponse.RequestMessage = request;
 
                     // Replace the response with the cached response that has a reset content stream
                     response.Dispose();
-                    response = cachedResponse.ToResponseMessage(request);
+                    response = cachedResponse;
                 }
             }
         }
@@ -195,9 +197,8 @@ public class CacheHandler(
 
                 // The cached response did not have a Vary header and was not private
 
-                return ValueTask.FromResult<CacheHit?>(
-                    new(entryKey, response.ToResponseMessage(request), CacheType.Shared)
-                );
+                response.RequestMessage = request;
+                return ValueTask.FromResult<CacheHit?>(new(entryKey, response, CacheType.Shared));
             },
             async variation =>
             {
@@ -208,7 +209,7 @@ public class CacheHandler(
                 if (responseKey is not null)
                 {
                     entry = await cache.GetAsync(responseKey, cancellationToken);
-                    if (entry.TryGetResponse(out var exactCacheResponse))
+                    if (entry.TryGetResponse(out var response))
                     {
                         logger.LogTrace(
                             "Cached response was found for {RequestUri} using response key {ResponseKey}.",
@@ -217,11 +218,8 @@ public class CacheHandler(
                         );
 
                         // The previous response had a Vary header, and the request headers and the cached response had equal header values
-                        return new(
-                            responseKey,
-                            exactCacheResponse.ToResponseMessage(request),
-                            variation.CacheType
-                        );
+                        response.RequestMessage = request;
+                        return new(responseKey, response, variation.CacheType);
                     }
                     else
                     {
