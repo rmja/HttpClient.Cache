@@ -1,4 +1,5 @@
 using System.Net;
+using System.Reflection;
 
 namespace HttpClientCache.Files;
 
@@ -14,6 +15,8 @@ public class FileCache : IHttpCache
     private readonly ITimer _timer;
 
     public static FileCache Default { get; } = new();
+
+    public DirectoryInfo RootDirectory => _rootDirectory;
 
     /// <summary>
     /// Gets or sets the maximum number of cache entries allowed in the cache directory.
@@ -35,7 +38,13 @@ public class FileCache : IHttpCache
     /// Creates a new instance of <see cref="FileCache"/> with the default root directory.
     /// </summary>
     public FileCache()
-        : this(Path.Combine(Path.GetTempPath(), "HttpClient.Cache.Files.FileCache")) { }
+        : this(
+            Path.Combine(
+                Path.GetTempPath(),
+                "HttpClient.FileCache",
+                Assembly.GetEntryAssembly()!.GetName().Name!
+            )
+        ) { }
 
     /// <summary>
     /// Creates a new instance of <see cref="FileCache"/> with the specified root directory.

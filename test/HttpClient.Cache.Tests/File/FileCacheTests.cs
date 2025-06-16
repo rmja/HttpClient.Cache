@@ -29,6 +29,22 @@ public sealed class FileCacheTests : IDisposable
     }
 
     [Fact]
+    public void DefaultRootDirectory()
+    {
+        // Given
+        var cache = new FileCache();
+
+        // When
+        var rootDirectory = cache.RootDirectory;
+
+        // Then
+        Assert.Equal(
+            Path.Combine(Path.GetTempPath(), "HttpClient.FileCache", "HttpClient.Cache.Tests"),
+            rootDirectory.FullName
+        );
+    }
+
+    [Fact]
     public async Task Get_KeyDoesNotExist()
     {
         // Given
