@@ -52,7 +52,7 @@ internal record struct VariationFile(FileInfo Info)
     {
         var model = new VariationModel
         {
-            Key = key,
+            VariationKey = key,
             CacheType = variation.CacheType,
             NormalizedVaryHeaders = variation.NormalizedVaryHeaders,
         };

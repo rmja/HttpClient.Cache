@@ -214,6 +214,7 @@ public class FileCache : IHttpCache
 
             var now = _timeProvider.GetUtcNow();
             var cachedResponse = await SetResponseImplAsync(
+                variationKey: null,
                 responseKey,
                 response,
                 now,
@@ -242,6 +243,7 @@ public class FileCache : IHttpCache
 
             // Write the response
             var cachedResponse = await SetResponseImplAsync(
+                variationKey,
                 responseKey,
                 response,
                 now,
@@ -268,6 +270,7 @@ public class FileCache : IHttpCache
     }
 
     private async Task<HttpResponseMessage> SetResponseImplAsync(
+        string? variationKey,
         string responseKey,
         HttpResponseMessage response,
         DateTimeOffset now,
@@ -278,7 +281,8 @@ public class FileCache : IHttpCache
         var expiration = response.GetExpiration(now) ?? (now + DefaultInitialExpiration);
         var metadata = new MetadataModel()
         {
-            Key = responseKey,
+            VariationKey = variationKey,
+            ResponseKey = responseKey,
             Url = response.RequestMessage!.RequestUri!,
             Version = response.Version,
             StatusCode = response.StatusCode,

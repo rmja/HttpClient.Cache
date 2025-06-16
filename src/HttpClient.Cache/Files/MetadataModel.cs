@@ -4,7 +4,8 @@ namespace HttpClientCache.Files;
 
 public record MetadataModel
 {
-    public required string Key { get; init; }
+    public required string? VariationKey { get; init; }
+    public required string ResponseKey { get; init; }
     public required Uri Url { get; init; }
     public required Version Version { get; init; }
     public required HttpStatusCode StatusCode { get; init; }
