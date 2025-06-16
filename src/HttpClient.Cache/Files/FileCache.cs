@@ -258,7 +258,7 @@ public class FileCache : IHttpCache
             );
             var variationFile = VariationFile.CreateTemp(_tempDirectory);
 
-            await variationFile.WriteAsync(variationKey, variation);
+            await variationFile.WriteAsync(variationKey, request.RequestUri!, variation);
 
             // Let the variation file have the same (possibly updated) expiration as the response
             variationFileName.SetExpiration(variationFile.Info, expiration);
