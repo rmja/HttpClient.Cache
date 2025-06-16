@@ -114,6 +114,15 @@ public class CacheKeyComputer : ICacheKeyComputer
 
     protected virtual string? GetUserId(JwtSecurityToken jwt)
     {
-        return jwt.Payload.Sub ?? jwt.Payload.GetValueOrDefault("client_id") as string;
+        if (jwt.Payload.Sub is not null)
+        {
+            return "sub:" + jwt.Payload.Sub;
+        }
+        else if (jwt.Payload.TryGetValue("client_id", out var clientId))
+        {
+            return "client_id:" + clientId;
+        }
+
+        return null;
     }
 }
