@@ -38,20 +38,29 @@ internal record struct VariationFile(FileInfo Info)
         }
 
         await using var stream = Info.OpenRead();
-        var variation = await JsonSerializer.DeserializeAsync(
+        var model = await JsonSerializer.DeserializeAsync(
             stream,
-            FileCacheSerializerContext.Default.Variation
+            FileCacheSerializerContext.Default.VariationModel
         );
-        return variation!;
+        return new Variation(model!.CacheType)
+        {
+            NormalizedVaryHeaders = model.NormalizedVaryHeaders,
+        };
     }
 
-    public readonly async ValueTask WriteAsync(Variation variation)
+    public readonly async ValueTask WriteAsync(string key, Variation variation)
     {
+        var model = new VariationModel
+        {
+            Key = key,
+            CacheType = variation.CacheType,
+            NormalizedVaryHeaders = variation.NormalizedVaryHeaders,
+        };
         using var stream = Info.OpenWrite();
         await JsonSerializer.SerializeAsync(
             stream,
-            variation,
-            FileCacheSerializerContext.Default.Variation
+            model,
+            FileCacheSerializerContext.Default.VariationModel
         );
     }
 

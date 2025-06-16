@@ -256,7 +256,7 @@ public class FileCache : IHttpCache
             );
             var variationFile = VariationFile.CreateTemp(_tempDirectory);
 
-            await variationFile.WriteAsync(variation);
+            await variationFile.WriteAsync(variationKey, variation);
 
             // Let the variation file have the same (possibly updated) expiration as the response
             variationFileName.SetExpiration(variationFile.Info, expiration);
@@ -276,8 +276,9 @@ public class FileCache : IHttpCache
     {
         var modified = response.GetModified() ?? now;
         var expiration = response.GetExpiration(now) ?? (now + DefaultInitialExpiration);
-        var metadata = new Metadata()
+        var metadata = new MetadataModel()
         {
+            Key = responseKey,
             Url = response.RequestMessage!.RequestUri!,
             Version = response.Version,
             StatusCode = response.StatusCode,
@@ -300,8 +301,6 @@ public class FileCache : IHttpCache
                     x.Value.ToList()
                 ))
                 .ToList(),
-            Etag = response.Headers.ETag?.ToString(),
-            LastModified = response.Content.Headers.LastModified,
         };
 
         var metadataFileName = FileName.Metadata(responseKey, modified, response.Headers.ETag);

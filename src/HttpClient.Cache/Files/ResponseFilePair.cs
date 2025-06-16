@@ -113,23 +113,23 @@ internal record struct ResponseFilePair(FileInfo MetadataInfo, FileInfo Response
         return response;
     }
 
-    public readonly async ValueTask<Metadata> ReadMetadataAsync()
+    public readonly async ValueTask<MetadataModel> ReadMetadataAsync()
     {
         await using var stream = MetadataInfo.OpenRead();
         var metadata = await JsonSerializer.DeserializeAsync(
             stream,
-            FileCacheSerializerContext.Default.Metadata
+            FileCacheSerializerContext.Default.MetadataModel
         );
         return metadata!;
     }
 
-    public readonly async ValueTask WriteMetadataAsync(Metadata metadata)
+    public readonly async ValueTask WriteMetadataAsync(MetadataModel metadata)
     {
         await using var stream = MetadataInfo.OpenWrite();
         await JsonSerializer.SerializeAsync(
             stream,
             metadata,
-            FileCacheSerializerContext.Default.Metadata
+            FileCacheSerializerContext.Default.MetadataModel
         );
     }
 

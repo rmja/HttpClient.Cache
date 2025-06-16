@@ -2,8 +2,8 @@ using System.Text.Json.Serialization;
 
 namespace HttpClientCache.Files;
 
-[JsonSerializable(typeof(Metadata))]
-[JsonSerializable(typeof(Variation))]
+[JsonSerializable(typeof(MetadataModel))]
+[JsonSerializable(typeof(VariationModel))]
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     WriteIndented = true,
