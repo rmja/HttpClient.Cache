@@ -35,7 +35,7 @@ public sealed class FileCacheTests : IDisposable
         var request = new HttpRequestMessage(HttpMethod.Get, RepoUrl);
 
         // When
-        Assert.Null(await _cache.GetAsync(request, TestContext.Current.CancellationToken));
+        Assert.Null(await _cache.GetResponseAsync(request, TestContext.Current.CancellationToken));
 
         // Then
     }
@@ -67,7 +67,10 @@ public sealed class FileCacheTests : IDisposable
         );
 
         // When
-        using var found = await _cache.GetAsync(request, TestContext.Current.CancellationToken);
+        using var found = await _cache.GetResponseAsync(
+            request,
+            TestContext.Current.CancellationToken
+        );
 
         // Then
         Assert.NotNull(found);
@@ -101,7 +104,7 @@ public sealed class FileCacheTests : IDisposable
         );
 
         // When
-        using var found = await _cache.GetWithVariationAsync(
+        using var found = await _cache.GetResponseWithVariationAsync(
             request,
             TestContext.Current.CancellationToken
         );
@@ -135,7 +138,7 @@ public sealed class FileCacheTests : IDisposable
         );
 
         // When
-        using var found = await _cache.GetWithVariationAsync(
+        using var found = await _cache.GetResponseWithVariationAsync(
             request,
             TestContext.Current.CancellationToken
         );
@@ -168,14 +171,17 @@ public sealed class FileCacheTests : IDisposable
 
         // Then
         _timeProvider.Advance(TimeSpan.FromSeconds(8));
-        using var notExpired = await _cache.GetAsync(
+        using var notExpired = await _cache.GetResponseAsync(
             request,
             TestContext.Current.CancellationToken
         );
         Assert.Equal(TimeSpan.FromSeconds(2), notExpired?.Headers.CacheControl?.MaxAge);
 
         _timeProvider.Advance(TimeSpan.FromSeconds(10));
-        using var expired = await _cache.GetAsync(request, TestContext.Current.CancellationToken);
+        using var expired = await _cache.GetResponseAsync(
+            request,
+            TestContext.Current.CancellationToken
+        );
         Assert.Null(expired);
     }
 
@@ -203,7 +209,7 @@ public sealed class FileCacheTests : IDisposable
         );
 
         // Then
-        using var notExpired = await _cache.GetWithVariationAsync(
+        using var notExpired = await _cache.GetResponseWithVariationAsync(
             request,
             TestContext.Current.CancellationToken
         );
@@ -215,7 +221,10 @@ public sealed class FileCacheTests : IDisposable
         );
 
         _timeProvider.Advance(TimeSpan.FromSeconds(20));
-        using var expired = await _cache.GetAsync(request, TestContext.Current.CancellationToken);
+        using var expired = await _cache.GetResponseAsync(
+            request,
+            TestContext.Current.CancellationToken
+        );
         Assert.Null(expired);
     }
 
@@ -255,14 +264,17 @@ public sealed class FileCacheTests : IDisposable
 
         // Then
         _timeProvider.Advance(TimeSpan.FromSeconds(8));
-        using var notExpired = await _cache.GetAsync(
+        using var notExpired = await _cache.GetResponseAsync(
             request,
             TestContext.Current.CancellationToken
         );
         Assert.Equal(TimeSpan.FromSeconds(2), notExpired?.Headers.CacheControl?.MaxAge);
 
         _timeProvider.Advance(TimeSpan.FromSeconds(10));
-        using var expired = await _cache.GetAsync(request, TestContext.Current.CancellationToken);
+        using var expired = await _cache.GetResponseAsync(
+            request,
+            TestContext.Current.CancellationToken
+        );
         Assert.Null(expired);
     }
 
@@ -291,13 +303,16 @@ public sealed class FileCacheTests : IDisposable
 
         // Then
         _timeProvider.Advance(TimeSpan.FromSeconds(18));
-        using var notExpired = await _cache.GetAsync(
+        using var notExpired = await _cache.GetResponseAsync(
             request,
             TestContext.Current.CancellationToken
         );
 
         _timeProvider.Advance(TimeSpan.FromSeconds(10));
-        using var expired = await _cache.GetAsync(request, TestContext.Current.CancellationToken);
+        using var expired = await _cache.GetResponseAsync(
+            request,
+            TestContext.Current.CancellationToken
+        );
         Assert.Null(expired);
     }
 }

@@ -10,7 +10,7 @@ public interface IHttpCache : IAsyncDisposable, IDisposable
     /// </summary>
     /// <param name="request">The request</param>
     /// <returns>The cached response, or <see langword="null"/> if the response was not found</returns>
-    ValueTask<HttpResponseMessage?> GetAsync(
+    ValueTask<HttpResponseMessage?> GetResponseAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken = default
     );
@@ -20,7 +20,7 @@ public interface IHttpCache : IAsyncDisposable, IDisposable
     /// </summary>
     /// <param name="request">The request</param>
     /// <returns>The cached response including variation details, or <see langword="null"/> if the response was not found</returns>
-    ValueTask<ResponseWithVariation?> GetWithVariationAsync(
+    ValueTask<ResponseWithVariation?> GetResponseWithVariationAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken = default
     );
@@ -30,7 +30,7 @@ public interface IHttpCache : IAsyncDisposable, IDisposable
     /// </summary>
     /// <param name="response">The response to set</param>
     /// <returns>The cached response, or <see langword="null"/> if the response could not be cached</returns>
-    Task<HttpResponseMessage?> SetResponseAsync(
+    ValueTask<HttpResponseMessage?> SetResponseAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken = default
     );

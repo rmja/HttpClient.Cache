@@ -82,16 +82,16 @@ public class FileCache : IHttpCache
         );
     }
 
-    public async ValueTask<HttpResponseMessage?> GetAsync(
+    public async ValueTask<HttpResponseMessage?> GetResponseAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken = default
     )
     {
-        var response = await GetWithVariationAsync(request);
+        var response = await GetResponseWithVariationAsync(request);
         return response?.Response;
     }
 
-    public async ValueTask<ResponseWithVariation?> GetWithVariationAsync(
+    public async ValueTask<ResponseWithVariation?> GetResponseWithVariationAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken = default
     )
@@ -173,7 +173,7 @@ public class FileCache : IHttpCache
         return null;
     }
 
-    public async Task<HttpResponseMessage?> SetResponseAsync(
+    public async ValueTask<HttpResponseMessage?> SetResponseAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken = default
     )

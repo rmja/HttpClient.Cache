@@ -13,7 +13,6 @@ It supports file based caching of responses based on the HTTP/1.1 caching header
 - Pluggable caching for `HttpClient`
 - Customizable cache key computation (supports both shared and private caching)
 - Extensible cache entry and cache handler interfaces (defaults to file based caching)
-- Easy integration with dependency injection
 
 ## Getting Started
 

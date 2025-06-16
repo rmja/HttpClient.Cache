@@ -19,7 +19,7 @@ public class CacheHandler(IHttpCache cache, ILogger<CacheHandler> logger) : Dele
 
         if (CanServeFromCache(request))
         {
-            var result = await cache.GetWithVariationAsync(request, cancellationToken);
+            var result = await cache.GetResponseWithVariationAsync(request, cancellationToken);
             if (result is not null)
             {
                 foundResponse = result.Response;
