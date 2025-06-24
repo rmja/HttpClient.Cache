@@ -96,7 +96,7 @@ public class FileCache : IHttpCache
         CancellationToken cancellationToken = default
     )
     {
-        var response = await GetResponseWithVariationAsync(request);
+        var response = await GetResponseWithVariationAsync(request, cancellationToken);
         return response?.Response;
     }
 
@@ -156,27 +156,24 @@ public class FileCache : IHttpCache
                 return null;
             }
 
-            fileInfo = FindJsonFile(responseKey);
-            if (fileInfo is null)
+            filename = filename.GetMetadataFileName(responseKey);
+            fileInfo = filename.GetFileInfo(_rootDirectory);
+            if (!fileInfo.Exists)
             {
                 return null;
             }
 
-            filename = FileName.FromFileInfo(fileInfo);
-            if (filename.IsMetadataFile)
+            var filePair = ResponseFilePair.FromMetadataFileInfo(fileInfo);
+            var response = await filePair.GetResponseAsync(_timeProvider.GetUtcNow());
+            if (response is null)
             {
-                var filePair = ResponseFilePair.FromMetadataFileInfo(fileInfo);
-                var response = await filePair.GetResponseAsync(_timeProvider.GetUtcNow());
-                if (response is null)
-                {
-                    // Response is expired
-                    filePair.TryDelete();
-                    return null;
-                }
-
-                response.RequestMessage = request;
-                return new(response, variation);
+                // Response is expired
+                filePair.TryDelete();
+                return null;
             }
+
+            response.RequestMessage = request;
+            return new(response, variation);
         }
 
         return null;
@@ -397,14 +394,9 @@ public class FileCache : IHttpCache
                 return;
             }
 
-            fileInfo = FindJsonFile(responseKey);
-            if (fileInfo is null)
-            {
-                return;
-            }
-
-            filename = FileName.FromFileInfo(fileInfo);
-            if (!filename.IsMetadataFile)
+            filename = filename.GetMetadataFileName(responseKey);
+            fileInfo = filename.GetFileInfo(_rootDirectory);
+            if (!fileInfo.Exists)
             {
                 return;
             }

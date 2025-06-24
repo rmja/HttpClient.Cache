@@ -25,10 +25,21 @@ internal readonly record struct FileName(
     private FileName(string tempGuid, string extension)
         : this(tempGuid, default, null, extension) { }
 
+    public FileInfo GetFileInfo(DirectoryInfo directory)
+    {
+        return new(Path.Combine(directory.FullName, ToString()));
+    }
+
     public FileName ToResponseFileName()
     {
         Debug.Assert(IsMetadataFile, "Cannot convert non-metadata file to response file name.");
         return new(KeyHash, ModifiedUtc, EtagHash, ResponseExtension);
+    }
+
+    public FileName GetMetadataFileName(string key)
+    {
+        Debug.Assert(IsVariationFile, "Cannot convert non-variation file to metadata file name.");
+        return new(Hash.ComputeHash(key), ModifiedUtc, EtagHash, MetadataExtension);
     }
 
     public void Refresh(FileInfo fileInfo, DateTimeOffset now)
