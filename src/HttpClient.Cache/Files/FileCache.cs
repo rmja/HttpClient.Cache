@@ -156,7 +156,7 @@ public class FileCache : IHttpCache
                 return null;
             }
 
-            fileInfo = FindJsonFile(responseKey);
+            fileInfo = FindJsonFile(responseKey, filename.EtagHash);
             if (fileInfo is null)
             {
                 return null;
@@ -397,7 +397,7 @@ public class FileCache : IHttpCache
                 return;
             }
 
-            fileInfo = FindJsonFile(responseKey);
+            fileInfo = FindJsonFile(responseKey, filename.EtagHash);
             if (fileInfo is null)
             {
                 return;
@@ -420,6 +420,16 @@ public class FileCache : IHttpCache
 
         // Rely on that the file name includes the "modified" timestamp right after the hash
         return _rootDirectory.EnumerateFiles($"{hash}_*.json").MaxBy(x => x.Name);
+    }
+
+    private FileInfo? FindJsonFile(string key, string? etagHash)
+    {
+        var hash = Hash.ComputeHash(key);
+
+        // Rely on that the file name includes the "modified" timestamp right after the hash
+        return _rootDirectory
+            .EnumerateFiles($"{hash}_*_{etagHash ?? ""}.*.json")
+            .MaxBy(x => x.Name);
     }
 
     public void Clear()

@@ -110,9 +110,9 @@ internal readonly record struct FileName(
         );
         Debug.Assert(modifiedUtc.Kind == DateTimeKind.Utc);
 
-        var etagHash = basename[(index + 1 + DateTimeFormat.Length + 1)..].ToString();
+        var etagHash = basename[(index + 1 + DateTimeFormat.Length + 1)..];
 
-        return new(hash, modifiedUtc, etagHash, extension);
+        return new(hash, modifiedUtc, etagHash.Length > 0 ? etagHash.ToString() : null, extension);
     }
 
     public static implicit operator string(FileName filename) => filename.ToString();
