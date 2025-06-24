@@ -11,7 +11,7 @@
     <PackageTags>HttpClient;Cache;HttpCache;FileCache</PackageTags>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/rmja/HttpClient.Cache.git</RepositoryUrl>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RootNamespace>HttpClientCache</RootNamespace>
   </PropertyGroup>
