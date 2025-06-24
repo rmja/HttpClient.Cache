@@ -96,7 +96,7 @@ public class FileCache : IHttpCache
         CancellationToken cancellationToken = default
     )
     {
-        var response = await GetResponseWithVariationAsync(request, cancellationToken);
+        var response = await GetResponseWithVariationAsync(request);
         return response?.Response;
     }
 
@@ -156,24 +156,27 @@ public class FileCache : IHttpCache
                 return null;
             }
 
-            filename = filename.GetMetadataFileName(responseKey);
-            fileInfo = filename.GetFileInfo(_rootDirectory);
-            if (!fileInfo.Exists)
+            fileInfo = FindJsonFile(responseKey);
+            if (fileInfo is null)
             {
                 return null;
             }
 
-            var filePair = ResponseFilePair.FromMetadataFileInfo(fileInfo);
-            var response = await filePair.GetResponseAsync(_timeProvider.GetUtcNow());
-            if (response is null)
+            filename = FileName.FromFileInfo(fileInfo);
+            if (filename.IsMetadataFile)
             {
-                // Response is expired
-                filePair.TryDelete();
-                return null;
-            }
+                var filePair = ResponseFilePair.FromMetadataFileInfo(fileInfo);
+                var response = await filePair.GetResponseAsync(_timeProvider.GetUtcNow());
+                if (response is null)
+                {
+                    // Response is expired
+                    filePair.TryDelete();
+                    return null;
+                }
 
-            response.RequestMessage = request;
-            return new(response, variation);
+                response.RequestMessage = request;
+                return new(response, variation);
+            }
         }
 
         return null;
@@ -394,9 +397,14 @@ public class FileCache : IHttpCache
                 return;
             }
 
-            filename = filename.GetMetadataFileName(responseKey);
-            fileInfo = filename.GetFileInfo(_rootDirectory);
-            if (!fileInfo.Exists)
+            fileInfo = FindJsonFile(responseKey);
+            if (fileInfo is null)
+            {
+                return;
+            }
+
+            filename = FileName.FromFileInfo(fileInfo);
+            if (!filename.IsMetadataFile)
             {
                 return;
             }
