@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net;
 using System.Reflection;
 
@@ -482,49 +483,59 @@ public class FileCache : IHttpCache
     private void RemoveOrphanedResponseFiles(bool force)
     {
         var removeBefore = force ? DateTime.MaxValue : _timeProvider.GetUtcNow().AddMinutes(-30);
-        var orphanedResponseFiles = new Dictionary<FileName, FileInfo?>();
+        var loneleyFiles =
+            new Dictionary<FileName, (FileInfo? MetadataInfo, FileInfo? ResponseInfo)>();
         foreach (var fileInfo in _rootDirectory.GetFiles("*.*", SearchOption.AllDirectories))
         {
             var fileName = FileName.FromFileInfo(fileInfo);
             if (fileName.IsMetadataFile)
             {
                 var responseFileName = fileName.ToResponseFileName();
-                if (!orphanedResponseFiles.Remove(responseFileName))
+                if (loneleyFiles.Remove(responseFileName))
                 {
-                    // Response file is not yet iterated
-                    orphanedResponseFiles.Add(responseFileName, null);
+                    // Response file was already iterated
+                    continue;
                 }
+
+                loneleyFiles.Add(responseFileName, (MetadataInfo: fileInfo, ResponseInfo: null));
             }
             else if (fileName.IsResponseFile)
             {
-                // It may be that we have just moved the response from temp to here, and that the metadata is about to follow,
-                // see ResponseFilePair.TryMakePermanent().
-                // In that is the case, then we must not consider the response as orphaned, even if no metadata is present.
-                // We therefore only delete response files that were written way in the past with a safe margin.
-
-                if (fileInfo.CreationTimeUtc < removeBefore)
+                if (loneleyFiles.Remove(fileName))
                 {
-                    if (!orphanedResponseFiles.TryAdd(fileName, fileInfo))
-                    {
-                        // Metadata file was already iterated
-                        orphanedResponseFiles.Remove(fileName);
-                    }
+                    // Metadata file was already iterated
+                    continue;
                 }
+
+                loneleyFiles.Add(fileName, (MetadataInfo: null, ResponseInfo: fileInfo));
             }
         }
 
-        foreach (var (fileName, orphanedResponseFileInfo) in orphanedResponseFiles)
+        foreach (var (responseFileName, loneley) in loneleyFiles)
         {
-            if (orphanedResponseFileInfo is null)
+            var fileInfo = loneley.MetadataInfo ?? loneley.ResponseInfo!;
+
+            // It may be that we have just moved the response from temp to here, and that the metadata is about to follow,
+            // see ResponseFilePair.TryMakePermanent().
+            // In that is the case, then we must not consider the response as orphaned, even if no metadata is present.
+            // We therefore only delete response files that were written way in the past with a safe margin.
+            if (fileInfo.CreationTimeUtc >= removeBefore)
             {
+                continue;
+            }
+
+            if (loneley.ResponseInfo is null)
+            {
+                var metadataInfo = loneley.MetadataInfo!;
+
                 throw new InvalidOperationException(
-                    $"Orphaned metadata file '{fileName}' found without a corresponding response file."
+                    $"Orphaned metadata file '{metadataInfo.Name}' found without the response file actually being present."
                 );
             }
 
             try
             {
-                orphanedResponseFileInfo.Delete();
+                loneley.ResponseInfo.Delete();
             }
             catch { }
         }
