@@ -11,7 +11,7 @@
     <PackageTags>HttpClient;Cache;HttpCache;FileCache</PackageTags>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/rmja/HttpClient.Cache.git</RepositoryUrl>
-    <Version>0.1.3</Version>
+    <Version>0.1.4</Version>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RootNamespace>HttpClientCache</RootNamespace>
   </PropertyGroup>
@@ -22,8 +22,8 @@
     <InternalsVisibleTo Include="HttpClient.Cache.Tests" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.9" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
   </ItemGroup>
 </Project>
