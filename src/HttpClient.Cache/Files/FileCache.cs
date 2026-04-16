@@ -530,6 +530,15 @@ public class FileCache : IHttpCache
 
         foreach (var (metadataFileInfo, responseFileInfo) in unpaired.Values)
         {
+            // It may be that we have just moved the response from temp to here, and that the
+            // metadata is about to follow, see ResponseFilePair.TryMakePermanent().
+            // In that case, we must not consider the file as orphaned if it was created recently.
+            var fileInfo = metadataFileInfo ?? responseFileInfo!;
+            if (fileInfo.CreationTimeUtc >= removeBefore)
+            {
+                continue;
+            }
+
             try
             {
                 if (responseFileInfo is not null)
