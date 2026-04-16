@@ -68,5 +68,14 @@ public sealed class Variation(CacheType cacheType) : IEquatable<Variation>
 
     public override bool Equals(object? obj) => Equals(obj as Variation);
 
-    public override int GetHashCode() => HashCode.Combine(CacheType, NormalizedVaryHeaders);
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(CacheType);
+        foreach (var header in NormalizedVaryHeaders)
+        {
+            hash.Add(header, StringComparer.Ordinal);
+        }
+        return hash.ToHashCode();
+    }
 }
