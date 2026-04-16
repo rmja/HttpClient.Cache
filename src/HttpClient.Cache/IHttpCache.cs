@@ -48,7 +48,7 @@ public interface IHttpCache : IAsyncDisposable, IDisposable
     /// Refresh a response to indicate that it was used and set an updated known expiration time.
     /// </summary>
     /// <param name="cachedResponse">The cached response to be refreshed</param>
-    /// <param name="notModifiedResponse">The 302 "NOT MODIFIED" response from the server that corresponds to the response to be refreshed</param>
+    /// <param name="notModifiedResponse">The 304 "NOT MODIFIED" response from the server that corresponds to the response to be refreshed</param>
     ValueTask RefreshResponseAsync(
         HttpResponseMessage cachedResponse,
         HttpResponseMessage notModifiedResponse,

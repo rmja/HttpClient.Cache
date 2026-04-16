@@ -67,7 +67,7 @@ public class CacheHandler(IHttpCache cache, ILogger<CacheHandler> logger) : Dele
         {
             if (webResponse.StatusCode == HttpStatusCode.NotModified)
             {
-                //await cache.RefreshResponseAsync(notModifiedResponse: response, cancellationToken);
+                await cache.RefreshResponseAsync(foundResponse, webResponse, cancellationToken);
 
                 // We are done with the received response as we plan to serve the cached response instead
                 webResponse.Dispose();
