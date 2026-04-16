@@ -33,16 +33,31 @@ internal record struct ResponseFilePair(FileInfo MetadataInfo, FileInfo Response
         var responseFileName = metadataFileName.ToResponseFileName();
         var metadataPath = Path.Combine(rootDirectory.FullName, metadataFileName);
         var responsePath = Path.Combine(rootDirectory.FullName, responseFileName);
+        var originalResponsePath = ResponseInfo.FullName;
 
         try
         {
             // Ensure that the response file is moved before we "commit" with the metadata file
             ResponseInfo.MoveTo(responsePath);
+        }
+        catch
+        {
+            return false;
+        }
+
+        try
+        {
             MetadataInfo.MoveTo(metadataPath);
             return true;
         }
         catch
         {
+            // Metadata move failed - move the response file back to avoid leaving an orphan
+            try
+            {
+                ResponseInfo.MoveTo(originalResponsePath);
+            }
+            catch { }
             return false;
         }
     }
@@ -55,7 +70,16 @@ internal record struct ResponseFilePair(FileInfo MetadataInfo, FileInfo Response
         // Open the response file and keep it open
         var responseFileStream = ResponseInfo.OpenRead();
 
-        var metadata = await ReadMetadataAsync();
+        MetadataModel metadata;
+        try
+        {
+            metadata = await ReadMetadataAsync();
+        }
+        catch
+        {
+            await responseFileStream.DisposeAsync();
+            throw;
+        }
 
         var metadataFileName = FileName.FromFileInfo(MetadataInfo);
         var expires = metadataFileName.GetExpiration(MetadataInfo);
