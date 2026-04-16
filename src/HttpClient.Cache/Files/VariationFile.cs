@@ -57,7 +57,7 @@ internal record struct VariationFile(FileInfo Info)
             CacheType = variation.CacheType,
             NormalizedVaryHeaders = variation.NormalizedVaryHeaders,
         };
-        using var stream = Info.OpenWrite();
+        await using var stream = Info.OpenWrite();
         await JsonSerializer.SerializeAsync(
             stream,
             model,
