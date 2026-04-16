@@ -488,7 +488,8 @@ public class FileCache : IHttpCache
         // When a metadata file is seen first, we store (metadataFileInfo, null).
         // When a response file is seen first, we store (null, responseFileInfo).
         // When the pair is matched, the entry is removed.
-        var unpaired = new Dictionary<FileName, (FileInfo? MetadataFileInfo, FileInfo? ResponseFileInfo)>();
+        var unpaired =
+            new Dictionary<FileName, (FileInfo? MetadataFileInfo, FileInfo? ResponseFileInfo)>();
 
         foreach (var fileInfo in _rootDirectory.GetFiles("*.*", SearchOption.AllDirectories))
         {
@@ -496,7 +497,10 @@ public class FileCache : IHttpCache
             if (fileName.IsMetadataFile)
             {
                 var responseFileName = fileName.ToResponseFileName();
-                if (unpaired.TryGetValue(responseFileName, out var existing) && existing.ResponseFileInfo is not null)
+                if (
+                    unpaired.TryGetValue(responseFileName, out var existing)
+                    && existing.ResponseFileInfo is not null
+                )
                 {
                     // Response file was already iterated - pair is complete
                     unpaired.Remove(responseFileName);
@@ -506,29 +510,25 @@ public class FileCache : IHttpCache
                     // Response file is not yet iterated
                     unpaired[responseFileName] = (fileInfo, null);
                 }
-
-                loneleyFiles.Add(responseFileName, (MetadataInfo: fileInfo, ResponseInfo: null));
             }
             else if (fileName.IsResponseFile)
             {
-                if (loneleyFiles.Remove(fileName))
+                if (
+                    unpaired.TryGetValue(fileName, out var existing)
+                    && existing.MetadataFileInfo is not null
+                )
                 {
-                    if (unpaired.TryGetValue(fileName, out var existing) && existing.MetadataFileInfo is not null)
-                    {
-                        // Metadata file was already iterated - pair is complete
-                        unpaired.Remove(fileName);
-                    }
-                    else
-                    {
-                        unpaired[fileName] = (null, fileInfo);
-                    }
+                    // Metadata file was already iterated - pair is complete
+                    unpaired.Remove(fileName);
                 }
-
-                loneleyFiles.Add(fileName, (MetadataInfo: null, ResponseInfo: fileInfo));
+                else
+                {
+                    unpaired[fileName] = (null, fileInfo);
+                }
             }
         }
 
-        foreach (var (_, (metadataFileInfo, responseFileInfo)) in unpaired)
+        foreach (var (metadataFileInfo, responseFileInfo) in unpaired.Values)
         {
             try
             {
