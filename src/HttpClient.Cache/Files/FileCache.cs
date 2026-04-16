@@ -482,17 +482,28 @@ public class FileCache : IHttpCache
     private void RemoveOrphanedResponseFiles(bool force)
     {
         var removeBefore = force ? DateTime.MaxValue : _timeProvider.GetUtcNow().AddMinutes(-30);
-        var orphanedResponseFiles = new Dictionary<FileName, FileInfo?>();
+
+        // Track unpaired files: response FileName -> (metadataFileInfo, responseFileInfo)
+        // When a metadata file is seen first, we store (metadataFileInfo, null).
+        // When a response file is seen first, we store (null, responseFileInfo).
+        // When the pair is matched, the entry is removed.
+        var unpaired = new Dictionary<FileName, (FileInfo? MetadataFileInfo, FileInfo? ResponseFileInfo)>();
+
         foreach (var fileInfo in _rootDirectory.GetFiles("*.*", SearchOption.AllDirectories))
         {
             var fileName = FileName.FromFileInfo(fileInfo);
             if (fileName.IsMetadataFile)
             {
                 var responseFileName = fileName.ToResponseFileName();
-                if (!orphanedResponseFiles.Remove(responseFileName))
+                if (unpaired.TryGetValue(responseFileName, out var existing) && existing.ResponseFileInfo is not null)
+                {
+                    // Response file was already iterated - pair is complete
+                    unpaired.Remove(responseFileName);
+                }
+                else
                 {
                     // Response file is not yet iterated
-                    orphanedResponseFiles.Add(responseFileName, null);
+                    unpaired[responseFileName] = (fileInfo, null);
                 }
             }
             else if (fileName.IsResponseFile)
@@ -504,27 +515,33 @@ public class FileCache : IHttpCache
 
                 if (fileInfo.CreationTimeUtc < removeBefore)
                 {
-                    if (!orphanedResponseFiles.TryAdd(fileName, fileInfo))
+                    if (unpaired.TryGetValue(fileName, out var existing) && existing.MetadataFileInfo is not null)
                     {
-                        // Metadata file was already iterated
-                        orphanedResponseFiles.Remove(fileName);
+                        // Metadata file was already iterated - pair is complete
+                        unpaired.Remove(fileName);
+                    }
+                    else
+                    {
+                        unpaired[fileName] = (null, fileInfo);
                     }
                 }
             }
         }
 
-        foreach (var (fileName, orphanedResponseFileInfo) in orphanedResponseFiles)
+        foreach (var (_, (metadataFileInfo, responseFileInfo)) in unpaired)
         {
-            if (orphanedResponseFileInfo is null)
-            {
-                throw new InvalidOperationException(
-                    $"Orphaned metadata file '{fileName}' found without a corresponding response file."
-                );
-            }
-
             try
             {
-                orphanedResponseFileInfo.Delete();
+                if (responseFileInfo is not null)
+                {
+                    responseFileInfo.Delete();
+                }
+                else if (metadataFileInfo is not null)
+                {
+                    // Metadata file exists without its response file - clean it up
+                    var filePair = ResponseFilePair.FromMetadataFileInfo(metadataFileInfo);
+                    filePair.TryDelete();
+                }
             }
             catch { }
         }
