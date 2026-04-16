@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net;
 using System.Reflection;
 
@@ -505,15 +506,12 @@ public class FileCache : IHttpCache
                     // Response file is not yet iterated
                     unpaired[responseFileName] = (fileInfo, null);
                 }
+
+                loneleyFiles.Add(responseFileName, (MetadataInfo: fileInfo, ResponseInfo: null));
             }
             else if (fileName.IsResponseFile)
             {
-                // It may be that we have just moved the response from temp to here, and that the metadata is about to follow,
-                // see ResponseFilePair.TryMakePermanent().
-                // In that is the case, then we must not consider the response as orphaned, even if no metadata is present.
-                // We therefore only delete response files that were written way in the past with a safe margin.
-
-                if (fileInfo.CreationTimeUtc < removeBefore)
+                if (loneleyFiles.Remove(fileName))
                 {
                     if (unpaired.TryGetValue(fileName, out var existing) && existing.MetadataFileInfo is not null)
                     {
@@ -525,6 +523,8 @@ public class FileCache : IHttpCache
                         unpaired[fileName] = (null, fileInfo);
                     }
                 }
+
+                loneleyFiles.Add(fileName, (MetadataInfo: null, ResponseInfo: fileInfo));
             }
         }
 
