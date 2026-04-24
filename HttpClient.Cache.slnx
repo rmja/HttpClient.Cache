@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/HttpClient.Cache/HttpClient.Cache.csproj" />
+  <Project Path="test/HttpClient.Cache.Tests/HttpClient.Cache.Tests.csproj" />
+</Solution>
