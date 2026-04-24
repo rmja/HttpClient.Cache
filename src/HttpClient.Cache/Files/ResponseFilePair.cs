@@ -67,8 +67,20 @@ internal record struct ResponseFilePair(FileInfo MetadataInfo, FileInfo Response
         bool allowExpired = false
     )
     {
-        // Open the response file and keep it open
-        var responseFileStream = ResponseInfo.OpenRead();
+        // Open the response file and keep it open.
+        // A FileNotFoundException can occur due to a race condition: a caller may obtain
+        // a FileInfo reference via FindJsonFile and then have the purge timer concurrently
+        // delete both files (metadata first, then response) before OpenRead is reached.
+        // Treat a missing response file as a cache miss.
+        FileStream responseFileStream;
+        try
+        {
+            responseFileStream = ResponseInfo.OpenRead();
+        }
+        catch (FileNotFoundException)
+        {
+            return null;
+        }
 
         MetadataModel metadata;
         try
@@ -168,7 +180,10 @@ internal record struct ResponseFilePair(FileInfo MetadataInfo, FileInfo Response
             return false;
         }
 
-        // No-one can find the response file now, so we can delete it too
+        // No new lookup can discover the response file now that the metadata file is gone,
+        // so it is safe to delete it. Note that a concurrent reader may already hold a FileInfo
+        // reference to the response file obtained before the metadata was deleted; such a reader
+        // will get a FileNotFoundException and treat it as a cache miss.
 
         try
         {
