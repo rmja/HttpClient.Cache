@@ -146,6 +146,18 @@ internal record struct ResponseFilePair(FileInfo MetadataInfo, FileInfo Response
             response.Headers.CacheControl.MaxAge = maxAge;
         }
 
+        // RFC 7234 §5.1: a cache must add an Age header to responses it serves,
+        // computed from the origin Date header when available.
+        var date = response.Headers.Date;
+        if (date is not null)
+        {
+            var age = now - date.Value;
+            if (age > TimeSpan.Zero)
+            {
+                response.Headers.Age = age;
+            }
+        }
+
         return response;
     }
 
