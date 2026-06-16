@@ -12,12 +12,30 @@ public static class HttpResponseMessageExtensions
         DateTimeOffset now
     )
     {
-        var maxAge = response.Headers.CacheControl?.MaxAge;
-        if (maxAge is null)
+        // RFC 7234 §4.2.1 freshness precedence for a (potentially) shared cache:
+        // s-maxage > max-age > Expires header.
+        var cacheControl = response.Headers.CacheControl;
+
+        var sharedMaxAge = cacheControl?.SharedMaxAge;
+        if (sharedMaxAge is not null)
         {
-            return null;
+            return now + sharedMaxAge.Value;
         }
-        return now + maxAge.Value;
+
+        var maxAge = cacheControl?.MaxAge;
+        if (maxAge is not null)
+        {
+            return now + maxAge.Value;
+        }
+
+        // Fall back to the Expires header if no explicit max-age is present.
+        var expires = response.Content.Headers.Expires;
+        if (expires is not null)
+        {
+            return expires;
+        }
+
+        return null;
     }
 
     /// <summary>
