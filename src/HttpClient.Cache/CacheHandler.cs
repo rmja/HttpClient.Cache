@@ -27,9 +27,16 @@ public class CacheHandler(IHttpCache cache, ILogger<CacheHandler> logger) : Dele
 
                 logger.LogTrace("Cached response was found for {RequestUri}.", request.RequestUri);
 
-                if (foundResponse.Headers.CacheControl?.MustRevalidate == true)
+                // rfc7234 §4.2.4 / §5.2.2.1: a stored response carrying "no-cache" or
+                // "must-revalidate" must be validated with the origin before it is reused.
+                var cacheControl = foundResponse.Headers.CacheControl;
+                var mustRevalidate =
+                    cacheControl?.MustRevalidate == true || cacheControl?.NoCache == true;
+
+                if (mustRevalidate)
                 {
-                    // Set appropriate conditional request headers
+                    // Set appropriate conditional request headers so the origin can answer
+                    // with 304 Not Modified instead of re-sending the full body.
 
                     if (foundResponse.Headers.ETag is not null)
                     {
@@ -43,13 +50,12 @@ public class CacheHandler(IHttpCache cache, ILogger<CacheHandler> logger) : Dele
                             .LastModified;
                     }
                 }
-                // rfc7234 §4 the stored response does not contain the no-cache cache directive
-                else if (foundResponse.Headers.CacheControl?.NoCache != true)
+                else
                 {
                     await cache.RefreshResponseAsync(foundResponse, cancellationToken);
 
                     logger.LogInformation(
-                        "Serving not validated, possibly stall response {HttpMethod} {RequestPath}",
+                        "Serving non-validated, possibly stale response {HttpMethod} {RequestPath}",
                         request.Method,
                         request.RequestUri
                     );
@@ -91,7 +97,7 @@ public class CacheHandler(IHttpCache cache, ILogger<CacheHandler> logger) : Dele
         var storedResponse = await cache.SetResponseAsync(webResponse, cancellationToken);
         if (storedResponse is not null)
         {
-            // We are done with the received reponse - we will be serving a cached response
+            // We are done with the received response - we will be serving a cached response
             webResponse.Dispose();
 
             return storedResponse;
