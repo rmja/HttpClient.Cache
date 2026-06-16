@@ -697,6 +697,117 @@ public sealed class CacheHandlerTests : IDisposable
         Assert.Equal(CacheType.Shared, response3.GetCacheType());
     }
 
+    [Fact]
+    public async Task Send_VaryStar_IsNotCached()
+    {
+        // Given - a "Vary: *" response can never be matched to a future request
+        var request1 = new HttpRequestMessage(HttpMethod.Get, RequestUri);
+        var request2 = new HttpRequestMessage(HttpMethod.Get, RequestUri);
+
+        _nextMock.SetupSendAsync(
+            x => x == request1,
+            () =>
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    RequestMessage = request1,
+                    Content = new StringContent("Hello"),
+                    Headers = { Vary = { "*" } },
+                }
+        );
+        _nextMock.SetupSendAsync(
+            x => x == request2,
+            () =>
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    RequestMessage = request2,
+                    Content = new StringContent("World"),
+                    Headers = { Vary = { "*" } },
+                }
+        );
+
+        // When
+        using var _ = await _handler.SendAsync(request1);
+        using var response = await _handler.SendAsync(request2);
+
+        // Then - the second request was served from the origin, not the cache
+        _nextMock.Verify();
+        Assert.Equal("World", await response.ReadAsStringAsync());
+        Assert.Equal(CacheType.None, response.GetCacheType());
+    }
+
+    [Fact]
+    public async Task Send_NoCacheStoredResponse_RevalidatesAndReuses()
+    {
+        // Given - a stored "no-cache" response must be revalidated before reuse
+        var request1 = new HttpRequestMessage(HttpMethod.Get, RequestUri);
+        var request2 = new HttpRequestMessage(HttpMethod.Get, RequestUri);
+
+        _nextMock.SetupSendAsync(
+            x => x == request1,
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                RequestMessage = request1,
+                Content = new StringContent("Hello"),
+                Headers = { ETag = new("\"v1\""), CacheControl = new() { NoCache = true } },
+            }
+        );
+        _nextMock.SetupSendAsync(
+            x => x == request2,
+            new HttpResponseMessage(HttpStatusCode.NotModified)
+            {
+                RequestMessage = request2,
+                Headers = { CacheControl = new() { NoCache = true } },
+            }
+        );
+
+        // When
+        using var _ = await _handler.SendAsync(request1);
+        using var response = await _handler.SendAsync(request2);
+
+        // Then
+        _nextMock.Verify();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Hello", await response.ReadAsStringAsync());
+        Assert.Equal(CacheType.Shared, response.GetCacheType());
+        // The conditional header derived from the stored ETag must have been sent.
+        Assert.Equal("\"v1\"", request2.Headers.IfNoneMatch.Single().Tag);
+    }
+
+    [Fact]
+    public async Task Send_RequestMaxAgeZero_ForcesRevalidation()
+    {
+        // Given - "Cache-Control: max-age=0" on the request forces revalidation
+        var request1 = new HttpRequestMessage(HttpMethod.Get, RequestUri);
+        var request2 = new HttpRequestMessage(HttpMethod.Get, RequestUri)
+        {
+            Headers = { CacheControl = new() { MaxAge = TimeSpan.Zero } },
+        };
+
+        _nextMock.SetupSendAsync(
+            x => x == request1,
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                RequestMessage = request1,
+                Content = new StringContent("Hello"),
+                Headers = { ETag = new("\"v1\"") },
+            }
+        );
+        _nextMock.SetupSendAsync(
+            x => x == request2,
+            new HttpResponseMessage(HttpStatusCode.NotModified) { RequestMessage = request2 }
+        );
+
+        // When
+        using var _ = await _handler.SendAsync(request1);
+        using var response = await _handler.SendAsync(request2);
+
+        // Then
+        _nextMock.Verify();
+        Assert.Equal("Hello", await response.ReadAsStringAsync());
+        Assert.Equal(CacheType.Shared, response.GetCacheType());
+        Assert.Equal("\"v1\"", request2.Headers.IfNoneMatch.Single().Tag);
+    }
+
     private static string CreateJwt(string userId)
     {
         var tokenHandler = new JwtSecurityTokenHandler();

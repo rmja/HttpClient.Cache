@@ -331,4 +331,102 @@ public sealed class FileCacheTests : IDisposable
         );
         Assert.Null(expired);
     }
+
+    [Fact]
+    public async Task Set_ResponseExpiration_FromExpiresHeader()
+    {
+        // Given - freshness expressed via the Expires header, with no max-age
+        var request = new HttpRequestMessage(HttpMethod.Get, RepoUrl);
+        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            RequestMessage = request,
+            Content = new StringContent("Hello"),
+        };
+        response.Content.Headers.Expires = _timeProvider.GetUtcNow().AddSeconds(10);
+
+        // When
+        using var cachedResponse = await _cache.SetResponseAsync(
+            response,
+            TestContext.Current.CancellationToken
+        );
+
+        // Then
+        _timeProvider.Advance(TimeSpan.FromSeconds(8));
+        using var notExpired = await _cache.GetResponseAsync(
+            request,
+            TestContext.Current.CancellationToken
+        );
+        Assert.NotNull(notExpired);
+
+        _timeProvider.Advance(TimeSpan.FromSeconds(5));
+        using var expired = await _cache.GetResponseAsync(
+            request,
+            TestContext.Current.CancellationToken
+        );
+        Assert.Null(expired);
+    }
+
+    [Fact]
+    public async Task Set_ResponseExpiration_SharedMaxAgeTakesPrecedence()
+    {
+        // Given - s-maxage (10s) must win over max-age (100s) for a shared cache
+        var request = new HttpRequestMessage(HttpMethod.Get, RepoUrl);
+        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            RequestMessage = request,
+            Content = new StringContent("Hello"),
+            Headers =
+            {
+                CacheControl = new()
+                {
+                    MaxAge = TimeSpan.FromSeconds(100),
+                    SharedMaxAge = TimeSpan.FromSeconds(10),
+                },
+            },
+        };
+
+        // When
+        using var cachedResponse = await _cache.SetResponseAsync(
+            response,
+            TestContext.Current.CancellationToken
+        );
+
+        // Then - past s-maxage but well within max-age, the entry must be expired
+        _timeProvider.Advance(TimeSpan.FromSeconds(12));
+        using var expired = await _cache.GetResponseAsync(
+            request,
+            TestContext.Current.CancellationToken
+        );
+        Assert.Null(expired);
+    }
+
+    [Fact]
+    public async Task Get_AddsAgeHeader()
+    {
+        // Given
+        var request = new HttpRequestMessage(HttpMethod.Get, RepoUrl);
+        using var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            RequestMessage = request,
+            Content = new StringContent("Hello"),
+            Headers = { CacheControl = new() { MaxAge = TimeSpan.FromSeconds(100) } },
+        };
+        response.Headers.Date = _timeProvider.GetUtcNow();
+
+        using var cachedResponse = await _cache.SetResponseAsync(
+            response,
+            TestContext.Current.CancellationToken
+        );
+
+        // When
+        _timeProvider.Advance(TimeSpan.FromSeconds(30));
+        using var found = await _cache.GetResponseAsync(
+            request,
+            TestContext.Current.CancellationToken
+        );
+
+        // Then
+        Assert.NotNull(found);
+        Assert.Equal(TimeSpan.FromSeconds(30), found.Headers.Age);
+    }
 }
