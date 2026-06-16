@@ -455,12 +455,17 @@ public class FileCache : IHttpCache
 
     public void Purge()
     {
+        // Only sweep temp files that are old enough that they cannot still be part of an in-flight
+        // SetResponse/MakePermanent operation. Without this guard the timer could delete a temp file
+        // while it is being written or moved into place.
+        var staleTempBefore = _timeProvider.GetUtcNow().AddMinutes(-30).UtcDateTime;
+
         var files = Enumerable.Concat(
             _rootDirectory
                 .GetFiles("*.json")
                 .OrderByDescending(x => x.LastAccessTimeUtc)
                 .Skip(MaxEntries),
-            _tempDirectory.GetFiles("*.json")
+            _tempDirectory.GetFiles("*.json").Where(x => x.CreationTimeUtc < staleTempBefore)
         );
         foreach (var fileInfo in files)
         {
