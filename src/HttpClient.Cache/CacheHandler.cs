@@ -29,9 +29,14 @@ public class CacheHandler(IHttpCache cache, ILogger<CacheHandler> logger) : Dele
 
                 // rfc7234 §4.2.4 / §5.2.2.1: a stored response carrying "no-cache" or
                 // "must-revalidate" must be validated with the origin before it is reused.
+                // rfc7234 §5.2.1.1: a request "Cache-Control: max-age=0" likewise forces
+                // revalidation of the stored response before it can be served.
                 var cacheControl = foundResponse.Headers.CacheControl;
+                var requestMaxAgeZero = request.Headers.CacheControl?.MaxAge == TimeSpan.Zero;
                 var mustRevalidate =
-                    cacheControl?.MustRevalidate == true || cacheControl?.NoCache == true;
+                    cacheControl?.MustRevalidate == true
+                    || cacheControl?.NoCache == true
+                    || requestMaxAgeZero;
 
                 if (mustRevalidate)
                 {
