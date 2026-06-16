@@ -1,5 +1,5 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Text;
+using System.Text.Json;
 
 namespace HttpClientCache;
 
@@ -90,15 +90,15 @@ public class CacheKeyComputer : ICacheKeyComputer
         if (headerValue.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         {
             var accessToken = headerValue.Substring(7);
-            try
+            if (JwtDecoder.TryDecodePayload(accessToken, out var payloadDocument))
             {
-                var jwt = new JwtSecurityToken(accessToken);
-                var userId = GetUserId(jwt);
-                return userId;
-            }
-            catch
-            {
-                // Not a jwt token or invalid token format
+                // A valid JWT was supplied. Use the identifier derived from its claims even if
+                // that identifier is null (e.g. neither "sub" nor "client_id" is present) so that
+                // such a token is treated consistently rather than falling back to the raw value.
+                using (payloadDocument)
+                {
+                    return GetUserId(payloadDocument.RootElement);
+                }
             }
         }
 
@@ -112,15 +112,29 @@ public class CacheKeyComputer : ICacheKeyComputer
         return headerValue;
     }
 
-    protected virtual string? GetUserId(JwtSecurityToken jwt)
+    /// <summary>
+    /// Derive a stable user identifier from a decoded JWT payload. The default implementation uses
+    /// the <c>sub</c> claim, falling back to <c>client_id</c>. Override to use different claims.
+    /// </summary>
+    /// <param name="jwtPayload">
+    /// The decoded JWT payload. This value is only valid for the duration of the call.
+    /// </param>
+    protected virtual string? GetUserId(JsonElement jwtPayload)
     {
-        if (jwt.Payload.Sub is not null)
+        if (
+            jwtPayload.TryGetProperty("sub", out var sub)
+            && sub.ValueKind == JsonValueKind.String
+        )
         {
-            return "sub:" + jwt.Payload.Sub;
+            return "sub:" + sub.GetString();
         }
-        else if (jwt.Payload.TryGetValue("client_id", out var clientId))
+
+        if (
+            jwtPayload.TryGetProperty("client_id", out var clientId)
+            && clientId.ValueKind == JsonValueKind.String
+        )
         {
-            return "client_id:" + clientId;
+            return "client_id:" + clientId.GetString();
         }
 
         return null;
