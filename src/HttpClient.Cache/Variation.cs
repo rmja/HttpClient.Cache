@@ -18,6 +18,14 @@ public sealed class Variation(CacheType cacheType) : IEquatable<Variation>
             .Headers.Vary.Select(x => x.ToLowerInvariant())
             .Order(StringComparer.Ordinal)
             .ToList();
+
+        // RFC 7234 §4.1: a "Vary: *" response cannot be matched to any future
+        // request and must therefore be treated as uncacheable.
+        if (normalizedVaryHeaders.Contains("*"))
+        {
+            type = CacheType.None;
+        }
+
         return new(type) { NormalizedVaryHeaders = normalizedVaryHeaders };
     }
 
