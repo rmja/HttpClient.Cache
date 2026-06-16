@@ -1,10 +1,10 @@
 # HttpClient.Cache
 
-[![CI](https://github.com/rmja/HttpClient.Cache/actions/workflows/ci.yaml/badge.svg)](https://github.com/rmja/HttpClient.Cache/actions/workflows/ci.yml)
+[![CI](https://github.com/rmja/HttpClient.Cache/actions/workflows/ci.yaml/badge.svg)](https://github.com/rmja/HttpClient.Cache/actions/workflows/ci.yaml)
 [![HttpClient.Cache](https://img.shields.io/nuget/vpre/HttpClient.Cache.svg)](https://www.nuget.org/packages/HttpClient.Cache)
 
 HTTP/1.1 compliant caching layer for the .NET `HttpClient`.
-A prerelease package is availble on nuget.
+A prerelease package is available on nuget.
 
 It supports file based caching of responses based on the HTTP/1.1 caching headers specified in [RFC7234](https://tools.ietf.org/html/rfc7234).
 
@@ -117,6 +117,26 @@ Vary: Accept-Language
 The cache will store separate entries for each value of the `Accept-Language` header (e.g., `en-US`, `da-DK`). When a client requests the same resource with a different `Accept-Language`, the appropriate cached variant is served.
 
 This mechanism ensures compliance with HTTP caching standards and delivers accurate, context-sensitive responses from the cache.
+
+## Freshness and Revalidation
+
+Freshness is determined from the response headers using the RFC 7234 §4.2.1 precedence:
+
+1. `Cache-Control: s-maxage`
+2. `Cache-Control: max-age`
+3. The `Expires` header
+
+If none of these are present, the configurable `FileCache.DefaultInitialExpiration` (2 days by
+default) is used the first time a response is stored, and `FileCache.DefaultRefreshExpiration`
+when a stored response is revalidated.
+
+Stored responses that carry `Cache-Control: no-cache` or `Cache-Control: must-revalidate` are
+revalidated against the origin before being reused. The handler attaches `If-None-Match` (from the
+stored `ETag`) or `If-Modified-Since` (from the stored `Last-Modified`) so the origin can answer
+`304 Not Modified` and avoid re-sending the body. A `Vary: *` response is treated as uncacheable.
+
+Responses served from the cache include an `Age` header computed from the stored `Date` header, as
+required by RFC 7234 §5.1.
 
 ## Key Components
 

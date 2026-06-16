@@ -39,13 +39,18 @@ public class FileCache : IHttpCache
     /// Creates a new instance of <see cref="FileCache"/> with the default root directory.
     /// </summary>
     public FileCache()
-        : this(
-            Path.Combine(
-                Path.GetTempPath(),
-                "HttpClient.FileCache",
-                Assembly.GetEntryAssembly()!.GetName().Name!
-            )
-        ) { }
+        : this(GetDefaultRootDirectory()) { }
+
+    private static string GetDefaultRootDirectory()
+    {
+        // GetEntryAssembly() can return null when hosted by unmanaged code or some test runners,
+        // so fall back to the executing assembly and finally to a constant name.
+        var appName =
+            Assembly.GetEntryAssembly()?.GetName().Name
+            ?? Assembly.GetExecutingAssembly().GetName().Name
+            ?? "HttpClient.Cache";
+        return Path.Combine(Path.GetTempPath(), "HttpClient.FileCache", appName);
+    }
 
     /// <summary>
     /// Creates a new instance of <see cref="FileCache"/> with the specified root directory.
@@ -97,7 +102,7 @@ public class FileCache : IHttpCache
         CancellationToken cancellationToken = default
     )
     {
-        var response = await GetResponseWithVariationAsync(request);
+        var response = await GetResponseWithVariationAsync(request, cancellationToken);
         return response?.Response;
     }
 
@@ -215,7 +220,6 @@ public class FileCache : IHttpCache
 
             var now = _timeProvider.GetUtcNow();
             var cachedResponse = await SetResponseImplAsync(
-                variationKey: null,
                 responseKey,
                 response,
                 now,
@@ -244,7 +248,6 @@ public class FileCache : IHttpCache
 
             // Write the response
             var cachedResponse = await SetResponseImplAsync(
-                variationKey,
                 responseKey,
                 response,
                 now,
@@ -259,7 +262,7 @@ public class FileCache : IHttpCache
             );
             var variationFile = VariationFile.CreateTemp(_tempDirectory);
 
-            await variationFile.WriteAsync(variationKey, request.RequestUri!, variation);
+            await variationFile.WriteAsync(request.RequestUri!, variation);
 
             // Let the variation file have the same (possibly updated) expiration as the response
             variationFileName.SetExpiration(variationFile.Info, expiration);
@@ -271,7 +274,6 @@ public class FileCache : IHttpCache
     }
 
     private async Task<HttpResponseMessage> SetResponseImplAsync(
-        string? variationKey,
         string responseKey,
         HttpResponseMessage response,
         DateTimeOffset now,
@@ -282,8 +284,6 @@ public class FileCache : IHttpCache
         var expiration = response.GetExpiration(now) ?? (now + DefaultInitialExpiration);
         var metadata = new MetadataModel()
         {
-            VariationKey = variationKey,
-            ResponseKey = responseKey,
             Url = response.RequestMessage!.RequestUri!,
             Version = response.Version,
             StatusCode = response.StatusCode,

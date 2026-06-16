@@ -48,11 +48,10 @@ internal record struct VariationFile(FileInfo Info)
         };
     }
 
-    public readonly async ValueTask WriteAsync(string key, Uri url, Variation variation)
+    public readonly async ValueTask WriteAsync(Uri url, Variation variation)
     {
         var model = new VariationModel
         {
-            VariationKey = key,
             Url = url,
             CacheType = variation.CacheType,
             NormalizedVaryHeaders = variation.NormalizedVaryHeaders,
